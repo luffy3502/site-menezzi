@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Admin | MENEZZI</title>
+    <link rel="icon" href="../assets/logo-menezzi.jpg" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body class="admin-page">
+    <header class="admin-topbar">
+      <a class="brand" href="../" aria-label="Voltar para a vitrine">
+        <img src="../assets/logo-menezzi.jpg" alt="Logo MENEZZI" />
+      </a>
+      <div>
+        <strong>Painel de produtos</strong>
+        <span>Gerencie a vitrine sem editar codigo</span>
+      </div>
+      <div class="admin-topbar-actions">
+        <a class="button button-light" href="../">Ver vitrine</a>
+        <button class="button button-light" type="button" data-logout hidden>Sair</button>
+      </div>
+    </header>
+
+    <main class="admin-shell">
+      <section class="login-panel" data-login-panel hidden>
+        <span class="section-kicker">Login</span>
+        <h1>Acesso administrativo</h1>
+        <p>Entre com o usuario e senha configurados nas variaveis de ambiente.</p>
+        <form class="login-form" data-login-form>
+          <label>Usuario
+            <input name="username" type="text" autocomplete="username" required />
+          </label>
+          <label>Senha
+            <input name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <button class="button button-primary" type="submit">Entrar</button>
+          <p class="form-message" data-login-message></p>
+        </form>
+      </section>
+
+      <section data-admin-products hidden>
+      <section class="admin-heading">
+        <span class="section-kicker">Admin</span>
+        <h1>Produtos da vitrine</h1>
+        <p>Adicione, edite, organize por categoria e marque ofertas da semana.</p>
+      </section>
+
+      <section class="admin-layout">
+        <form class="admin-form" data-product-form>
+          <input type="hidden" name="id" />
+          <div class="form-heading">
+            <h2 data-form-title>Novo produto</h2>
+            <button class="button button-light" type="button" data-clear-form>Limpar</button>
+          </div>
+
+          <label>Nome
+            <input name="name" type="text" required placeholder="Nome do produto" />
+          </label>
+          <label>Preco
+            <input name="price" type="number" min="0" step="0.01" required placeholder="0,00" />
+          </label>
+          <label>Categoria
+            <input name="category" type="text" list="category-list" required placeholder="Bolsas" />
+          </label>
+          <datalist id="category-list" data-category-options></datalist>
+          <label>Foto
+            <input name="image" type="text" required placeholder="URL da imagem" />
+          </label>
+          <label>Upload de nova foto
+            <input name="imageFile" type="file" accept="image/*" data-image-file />
+          </label>
+          <img class="image-preview" src="../assets/logo-menezzi.jpg" alt="Previa da foto do produto" data-image-preview />
+          <label>Descricao curta
+            <textarea name="description" rows="3" required placeholder="Resumo que aparece no card"></textarea>
+          </label>
+
+          <div class="toggle-grid">
+            <label class="check-line">
+              <input name="weeklyOffer" type="checkbox" />
+              Oferta da Semana
+            </label>
+            <label class="check-line">
+              <input name="available" type="checkbox" checked />
+              Disponivel
+            </label>
+          </div>
+
+          <button class="button button-primary" type="submit">Salvar produto</button>
+          <p class="form-message" data-form-message></p>
+        </form>
+
+        <section class="admin-products-panel">
+          <div class="admin-toolbar">
+            <label class="search-field">
+              <span>Buscar</span>
+              <input type="search" placeholder="Buscar produto..." data-admin-search />
+            </label>
+            <select data-admin-category aria-label="Filtrar categoria"></select>
+          </div>
+          <div class="admin-products-list" data-admin-list></div>
+          <p class="admin-note">
+            As alteracoes sao salvas no Supabase e aparecem para todos os visitantes assim que a vitrine for recarregada.
+            O arquivo <code>data/products.json</code> fica apenas como fallback quando a API nao esta configurada.
+          </p>
+        </section>
+      </section>
+      </section>
+    </main>
+
+    <script type="module" src="../js/admin.js"></script>
+  </body>
+</html>
