@@ -63,14 +63,50 @@ using (bucket_id = 'products');
 create table if not exists public.product_categories (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
+  image_url text not null default '',
+  is_active boolean not null default true,
   sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
 
+alter table public.product_categories
+  add column if not exists image_url text not null default '',
+  add column if not exists is_active boolean not null default true;
+
 create table if not exists public.store_gallery (
   id uuid primary key default gen_random_uuid(),
   title text not null default '',
+  caption text not null default '',
   image_url text not null default '',
+  is_active boolean not null default true,
+  is_cover boolean not null default false,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table public.store_gallery
+  add column if not exists caption text not null default '',
+  add column if not exists is_active boolean not null default true,
+  add column if not exists is_cover boolean not null default false;
+
+create table if not exists public.store_testimonials (
+  id uuid primary key default gen_random_uuid(),
+  name text not null default '',
+  city text not null default '',
+  image_url text not null default '',
+  rating integer not null default 5,
+  comment text not null default '',
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.store_instagram (
+  id uuid primary key default gen_random_uuid(),
+  title text not null default '',
+  image_url text not null default '',
+  link_url text not null default '',
+  is_active boolean not null default true,
   sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
@@ -84,6 +120,8 @@ create table if not exists public.store_settings (
 alter table public.product_categories enable row level security;
 alter table public.store_gallery enable row level security;
 alter table public.store_settings enable row level security;
+alter table public.store_testimonials enable row level security;
+alter table public.store_instagram enable row level security;
 
 drop policy if exists "Public can read product categories" on public.product_categories;
 create policy "Public can read product categories"
@@ -100,6 +138,18 @@ using (true);
 drop policy if exists "Public can read store settings" on public.store_settings;
 create policy "Public can read store settings"
 on public.store_settings
+for select
+using (true);
+
+drop policy if exists "Public can read store testimonials" on public.store_testimonials;
+create policy "Public can read store testimonials"
+on public.store_testimonials
+for select
+using (true);
+
+drop policy if exists "Public can read store instagram" on public.store_instagram;
+create policy "Public can read store instagram"
+on public.store_instagram
 for select
 using (true);
 

@@ -143,9 +143,10 @@ export async function loadAdminContent() {
 }
 
 export async function createCategory(name, sortOrder = 0) {
+  const payload = typeof name === "object" ? name : { name, sortOrder };
   return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=categories`, {
     method: "POST",
-    body: JSON.stringify({ name, sortOrder }),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -170,6 +171,46 @@ export async function deleteGalleryItem(itemId) {
 
 export async function reorderGalleryItems(ids) {
   return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=gallery&action=reorder`, {
+    method: "PATCH",
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export async function saveTestimonial(item) {
+  return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=testimonials`, {
+    method: "POST",
+    body: JSON.stringify(item),
+  });
+}
+
+export async function deleteTestimonial(itemId) {
+  return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=testimonials&id=${encodeURIComponent(itemId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function reorderTestimonials(ids) {
+  return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=testimonials&action=reorder`, {
+    method: "PATCH",
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export async function saveInstagramItem(item) {
+  return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=instagram`, {
+    method: "POST",
+    body: JSON.stringify(item),
+  });
+}
+
+export async function deleteInstagramItem(itemId) {
+  return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=instagram&id=${encodeURIComponent(itemId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function reorderInstagramItems(ids) {
+  return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=instagram&action=reorder`, {
     method: "PATCH",
     body: JSON.stringify({ ids }),
   });

@@ -3,12 +3,18 @@ import {
   createProduct,
   deleteCategory,
   deleteGalleryItem,
+  deleteInstagramItem,
   deleteProduct,
+  deleteTestimonial,
   getCategories,
   reorderGalleryItems,
+  reorderInstagramItems,
   reorderProducts,
+  reorderTestimonials,
   saveGalleryItem,
+  saveInstagramItem,
   saveStoreSettings,
+  saveTestimonial,
   updateProduct,
   uploadProductImage,
 } from "../products-store.js";
@@ -67,19 +73,33 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
   const submitButton = form.querySelector('button[type="submit"]');
   const categoryModal = root.ownerDocument.querySelector("[data-category-modal]");
   const categoryForm = root.ownerDocument.querySelector("[data-category-form]");
+  const categoryFile = root.ownerDocument.querySelector("[data-category-file]");
+  const categoryPreview = root.ownerDocument.querySelector("[data-category-preview]");
   const categoryAdminList = root.querySelector("[data-category-admin-list]");
   const galleryForm = root.querySelector("[data-gallery-form]");
   const galleryFile = root.querySelector("[data-gallery-file]");
   const galleryPreview = root.querySelector("[data-gallery-preview]");
   const galleryAdminList = root.querySelector("[data-gallery-admin-list]");
+  const testimonialForm = root.querySelector("[data-testimonial-form]");
+  const testimonialFile = root.querySelector("[data-testimonial-file]");
+  const testimonialPreview = root.querySelector("[data-testimonial-preview]");
+  const testimonialAdminList = root.querySelector("[data-testimonial-admin-list]");
+  const instagramForm = root.querySelector("[data-instagram-form]");
+  const instagramFile = root.querySelector("[data-instagram-file]");
+  const instagramPreview = root.querySelector("[data-instagram-preview]");
+  const instagramAdminList = root.querySelector("[data-instagram-admin-list]");
   const bannerForm = root.querySelector("[data-banner-form]");
   const bannerFile = root.querySelector("[data-banner-file]");
   const bannerPreview = root.querySelector("[data-banner-preview]");
   const settingsForm = root.querySelector("[data-settings-form]");
+  const footerForm = root.querySelector("[data-footer-form]");
 
   let products = byManualOrder(initialProducts);
-  let categories = (initialContent.categories || []).map((category) => category.name || category);
+  let categoryRecords = initialContent.categories || [];
+  let categories = categoryRecords.map((category) => category.name || category);
   let gallery = initialContent.gallery || [];
+  let testimonials = initialContent.testimonials || [];
+  let instagram = initialContent.instagram || [];
   let settings = initialContent.settings || {};
   let saving = false;
   let uploading = false;
@@ -109,6 +129,14 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
 
   function categoryChoices() {
     return [...new Set([...DEFAULT_CATEGORIES, ...categories, ...getCategories(products)].map(normalizeCategory).filter(Boolean))];
+  }
+
+  function categoryRecord(name) {
+    return categoryRecords.find((category) => category.name === name) || { name, image: "", active: true, sortOrder: 0 };
+  }
+
+  function applyCheckbox(formEl, name, value) {
+    if (formEl?.elements[name]) formEl.elements[name].checked = Boolean(value);
   }
 
   function selectedCategory() {
@@ -349,8 +377,16 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
       .map(
         (category) => `
           <article class="category-admin-item">
-            <span>${category}</span>
-            <button class="button button-light" type="button" data-delete-category="${category}">Excluir</button>
+            <img src="${adminImageSrc(categoryRecord(category).image)}" alt="${category}" />
+            <div>
+              <strong>${category}</strong>
+              <span class="${categoryRecord(category).active ? "status-ok" : "status-muted"}">${categoryRecord(category).active ? "Ativa" : "Inativa"}</span>
+            </div>
+            <div class="admin-actions">
+              <button class="button button-light" type="button" data-edit-category="${category}">Editar</button>
+              <button class="button button-light" type="button" data-toggle-category="${category}">${categoryRecord(category).active ? "Desativar" : "Ativar"}</button>
+              <button class="button button-light" type="button" data-delete-category="${category}">Excluir</button>
+            </div>
           </article>
         `
       )
@@ -362,12 +398,19 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
       gallery
         .map(
           (item, index) => `
-            <article class="gallery-admin-card">
+            <article class="gallery-admin-card" draggable="true" data-gallery-card="${item.id}">
               <img src="${adminImageSrc(item.image)}" alt="${item.title || "Foto da loja"}" />
               <strong>${item.title || "Foto da loja"}</strong>
+              <p>${item.caption || "Sem legenda"}</p>
+              <div class="status-row">
+                <span class="${item.active ? "status-ok" : "status-muted"}">${item.active ? "Ativa" : "Inativa"}</span>
+                ${item.cover ? '<span class="status-offer">Capa</span>' : ""}
+              </div>
               <div class="admin-actions">
+                <button class="button button-light" type="button" data-edit-gallery="${item.id}">Editar</button>
                 <button class="button button-light" type="button" data-move-gallery="${item.id}" data-direction="-1" ${index === 0 ? "disabled" : ""}>↑</button>
                 <button class="button button-light" type="button" data-move-gallery="${item.id}" data-direction="1" ${index === gallery.length - 1 ? "disabled" : ""}>↓</button>
+                <button class="button button-light" type="button" data-toggle-gallery="${item.id}">${item.active ? "Desativar" : "Ativar"}</button>
                 <button class="button danger-button" type="button" data-delete-gallery="${item.id}">Excluir</button>
               </div>
             </article>
@@ -376,11 +419,63 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
         .join("") || '<p class="empty-state">Adicione fotos da loja para aparecerem automaticamente na home.</p>';
   }
 
+  function renderTestimonialsAdmin() {
+    testimonialAdminList.innerHTML =
+      testimonials
+        .map(
+          (item, index) => `
+            <article class="gallery-admin-card" draggable="true" data-testimonial-card="${item.id}">
+              <img src="${adminImageSrc(item.image)}" alt="${item.name || "Cliente"}" />
+              <strong>${item.name || "Cliente"}</strong>
+              <p>${item.comment || ""}</p>
+              <div class="status-row">
+                <span class="status-offer">${"★".repeat(Number(item.rating || 5))}</span>
+                <span class="${item.active ? "status-ok" : "status-muted"}">${item.active ? "Ativo" : "Inativo"}</span>
+              </div>
+              <div class="admin-actions">
+                <button class="button button-light" type="button" data-edit-testimonial="${item.id}">Editar</button>
+                <button class="button button-light" type="button" data-move-testimonial="${item.id}" data-direction="-1" ${index === 0 ? "disabled" : ""}>Subir</button>
+                <button class="button button-light" type="button" data-move-testimonial="${item.id}" data-direction="1" ${index === testimonials.length - 1 ? "disabled" : ""}>Descer</button>
+                <button class="button button-light" type="button" data-toggle-testimonial="${item.id}">${item.active ? "Desativar" : "Ativar"}</button>
+                <button class="button danger-button" type="button" data-delete-testimonial="${item.id}">Excluir</button>
+              </div>
+            </article>
+          `
+        )
+        .join("") || '<p class="empty-state">Cadastre depoimentos para aparecerem na home.</p>';
+  }
+
+  function renderInstagramAdmin() {
+    instagramAdminList.innerHTML =
+      instagram
+        .map(
+          (item, index) => `
+            <article class="gallery-admin-card" draggable="true" data-instagram-card="${item.id}">
+              <img src="${adminImageSrc(item.image)}" alt="${item.title || "Instagram"}" />
+              <strong>${item.title || "Foto do Instagram"}</strong>
+              <p>${item.link || "Sem link especifico"}</p>
+              <div class="status-row">
+                <span class="${item.active ? "status-ok" : "status-muted"}">${item.active ? "Ativa" : "Inativa"}</span>
+              </div>
+              <div class="admin-actions">
+                <button class="button button-light" type="button" data-edit-instagram="${item.id}">Editar</button>
+                <button class="button button-light" type="button" data-move-instagram="${item.id}" data-direction="-1" ${index === 0 ? "disabled" : ""}>Subir</button>
+                <button class="button button-light" type="button" data-move-instagram="${item.id}" data-direction="1" ${index === instagram.length - 1 ? "disabled" : ""}>Descer</button>
+                <button class="button button-light" type="button" data-toggle-instagram="${item.id}">${item.active ? "Desativar" : "Ativar"}</button>
+                <button class="button danger-button" type="button" data-delete-instagram="${item.id}">Excluir</button>
+              </div>
+            </article>
+          `
+        )
+        .join("") || '<p class="empty-state">Adicione fotos para montar a grade do Instagram.</p>';
+  }
+
   function fillSettingsForms() {
     if (!settingsForm || !bannerForm) return;
     Object.entries(settings).forEach(([key, value]) => {
       if (settingsForm.elements[key]) settingsForm.elements[key].value = value || "";
       if (bannerForm.elements[key]) bannerForm.elements[key].value = value || "";
+      if (footerForm?.elements[key]) footerForm.elements[key].value = value || "";
     });
     if (bannerForm.elements.bannerImage) bannerForm.elements.bannerImage.value = settings.bannerImage || "";
     if (bannerPreview) bannerPreview.src = adminImageSrc(settings.bannerImage);
@@ -393,6 +488,8 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     renderDashboard();
     renderCategoriesAdmin();
     renderGalleryAdmin();
+    renderTestimonialsAdmin();
+    renderInstagramAdmin();
     fillSettingsForms();
   }
 
@@ -403,6 +500,84 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     root.querySelectorAll("[data-admin-section-button]").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.adminSectionButton === sectionName);
     });
+  }
+
+  function editCategory(name) {
+    const category = categoryRecord(name);
+    categoryForm.elements.oldName.value = name;
+    categoryForm.elements.name.value = name;
+    categoryForm.elements.image.value = category.image || "";
+    applyCheckbox(categoryForm, "active", category.active);
+    categoryPreview.src = adminImageSrc(category.image);
+    categoryModal.hidden = false;
+    categoryForm.elements.name.focus();
+  }
+
+  function clearGalleryForm() {
+    galleryForm.reset();
+    galleryForm.elements.id.value = "";
+    galleryForm.elements.image.value = "";
+    applyCheckbox(galleryForm, "active", true);
+    applyCheckbox(galleryForm, "cover", false);
+    galleryPreview.src = FALLBACK_IMAGE;
+  }
+
+  function editGallery(id) {
+    const item = gallery.find((entry) => entry.id === id);
+    if (!item) return;
+    galleryForm.elements.id.value = item.id;
+    galleryForm.elements.title.value = item.title || "";
+    galleryForm.elements.caption.value = item.caption || "";
+    galleryForm.elements.image.value = item.image || "";
+    applyCheckbox(galleryForm, "active", item.active);
+    applyCheckbox(galleryForm, "cover", item.cover);
+    galleryPreview.src = adminImageSrc(item.image);
+    showSection("galeria");
+    galleryForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function clearTestimonialForm() {
+    testimonialForm.reset();
+    testimonialForm.elements.id.value = "";
+    testimonialForm.elements.image.value = "";
+    applyCheckbox(testimonialForm, "active", true);
+    testimonialPreview.src = FALLBACK_IMAGE;
+  }
+
+  function editTestimonial(id) {
+    const item = testimonials.find((entry) => entry.id === id);
+    if (!item) return;
+    testimonialForm.elements.id.value = item.id;
+    testimonialForm.elements.name.value = item.name || "";
+    testimonialForm.elements.city.value = item.city || "";
+    testimonialForm.elements.rating.value = item.rating || 5;
+    testimonialForm.elements.comment.value = item.comment || "";
+    testimonialForm.elements.image.value = item.image || "";
+    applyCheckbox(testimonialForm, "active", item.active);
+    testimonialPreview.src = adminImageSrc(item.image);
+    showSection("depoimentos");
+    testimonialForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function clearInstagramForm() {
+    instagramForm.reset();
+    instagramForm.elements.id.value = "";
+    instagramForm.elements.image.value = "";
+    applyCheckbox(instagramForm, "active", true);
+    instagramPreview.src = FALLBACK_IMAGE;
+  }
+
+  function editInstagram(id) {
+    const item = instagram.find((entry) => entry.id === id);
+    if (!item) return;
+    instagramForm.elements.id.value = item.id;
+    instagramForm.elements.title.value = item.title || "";
+    instagramForm.elements.link.value = item.link || "";
+    instagramForm.elements.image.value = item.image || "";
+    applyCheckbox(instagramForm, "active", item.active);
+    instagramPreview.src = adminImageSrc(item.image);
+    showSection("instagram");
+    instagramForm.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   form.addEventListener("submit", async (event) => {
@@ -435,9 +610,24 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     const toggleAvailable = event.target.closest("[data-toggle-available]");
     const toggleOffer = event.target.closest("[data-toggle-offer]");
     const openCategory = event.target.closest("[data-open-category-modal]");
+    const editCategoryButton = event.target.closest("[data-edit-category]");
+    const toggleCategoryButton = event.target.closest("[data-toggle-category]");
     const deleteCategoryButton = event.target.closest("[data-delete-category]");
+    const editGalleryButton = event.target.closest("[data-edit-gallery]");
+    const toggleGalleryButton = event.target.closest("[data-toggle-gallery]");
     const deleteGalleryButton = event.target.closest("[data-delete-gallery]");
     const moveGalleryButton = event.target.closest("[data-move-gallery]");
+    const editTestimonialButton = event.target.closest("[data-edit-testimonial]");
+    const toggleTestimonialButton = event.target.closest("[data-toggle-testimonial]");
+    const deleteTestimonialButton = event.target.closest("[data-delete-testimonial]");
+    const moveTestimonialButton = event.target.closest("[data-move-testimonial]");
+    const editInstagramButton = event.target.closest("[data-edit-instagram]");
+    const toggleInstagramButton = event.target.closest("[data-toggle-instagram]");
+    const deleteInstagramButton = event.target.closest("[data-delete-instagram]");
+    const moveInstagramButton = event.target.closest("[data-move-instagram]");
+    const clearGalleryButton = event.target.closest("[data-clear-gallery-form]");
+    const clearTestimonialButton = event.target.closest("[data-clear-testimonial-form]");
+    const clearInstagramButton = event.target.closest("[data-clear-instagram-form]");
     const focusProduct = event.target.closest("[data-focus-product-form]");
     const available = event.target.closest("[data-set-available]");
     const offer = event.target.closest("[data-set-offer]");
@@ -450,9 +640,17 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
         form.scrollIntoView({ behavior: "smooth", block: "start" });
       }
       if (openCategory) {
+        categoryForm.reset();
+        categoryForm.elements.oldName.value = "";
+        categoryForm.elements.image.value = "";
+        categoryPreview.src = FALLBACK_IMAGE;
+        applyCheckbox(categoryForm, "active", true);
         categoryModal.hidden = false;
         categoryForm.elements.name.focus();
       }
+      if (clearGalleryButton) clearGalleryForm();
+      if (clearTestimonialButton) clearTestimonialForm();
+      if (clearInstagramButton) clearInstagramForm();
       if (available) {
         availableInput.value = available.dataset.setAvailable;
         renderChoiceButtons();
@@ -467,6 +665,17 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
       if (duplicate) await duplicateProduct(duplicate.dataset.duplicateProduct);
       if (toggleAvailable) await toggleProduct(toggleAvailable.dataset.toggleAvailable, "available");
       if (toggleOffer) await toggleProduct(toggleOffer.dataset.toggleOffer, "offer");
+      if (editCategoryButton) editCategory(editCategoryButton.dataset.editCategory);
+      if (toggleCategoryButton) {
+        const current = categoryRecord(toggleCategoryButton.dataset.toggleCategory);
+        const saved = await createCategory({ ...current, oldName: current.name, active: !current.active });
+        categoryRecords = categoryRecords.some((item) => item.name === current.name)
+          ? categoryRecords.map((item) => (item.name === current.name ? saved : item))
+          : [...categoryRecords, saved];
+        categories = categoryRecords.map((category) => category.name);
+        render();
+        setMessage("Categoria atualizada.");
+      }
       if (deleteCategoryButton) {
         const name = deleteCategoryButton.dataset.deleteCategory;
         if (DEFAULT_CATEGORIES.includes(name)) {
@@ -476,8 +685,17 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
         if (!window.confirm(`Excluir a categoria "${name}"?`)) return;
         await deleteCategory(name);
         categories = categories.filter((category) => category !== name);
+        categoryRecords = categoryRecords.filter((category) => category.name !== name);
         render();
         setMessage("Categoria excluida.");
+      }
+      if (editGalleryButton) editGallery(editGalleryButton.dataset.editGallery);
+      if (toggleGalleryButton) {
+        const item = gallery.find((entry) => entry.id === toggleGalleryButton.dataset.toggleGallery);
+        const saved = await saveGalleryItem({ ...item, active: !item.active });
+        gallery = gallery.map((entry) => (entry.id === saved.id ? saved : entry));
+        render();
+        setMessage("Foto atualizada.");
       }
       if (deleteGalleryButton) {
         if (!window.confirm("Excluir esta foto da galeria?")) return;
@@ -493,6 +711,54 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
         const next = [...gallery];
         [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
         gallery = await reorderGalleryItems(next.map((item) => item.id));
+        render();
+      }
+      if (editTestimonialButton) editTestimonial(editTestimonialButton.dataset.editTestimonial);
+      if (toggleTestimonialButton) {
+        const item = testimonials.find((entry) => entry.id === toggleTestimonialButton.dataset.toggleTestimonial);
+        const saved = await saveTestimonial({ ...item, active: !item.active });
+        testimonials = testimonials.map((entry) => (entry.id === saved.id ? saved : entry));
+        render();
+        setMessage("Depoimento atualizado.");
+      }
+      if (deleteTestimonialButton) {
+        if (!window.confirm("Excluir este depoimento?")) return;
+        await deleteTestimonial(deleteTestimonialButton.dataset.deleteTestimonial);
+        testimonials = testimonials.filter((item) => item.id !== deleteTestimonialButton.dataset.deleteTestimonial);
+        render();
+        setMessage("Depoimento excluido.");
+      }
+      if (moveTestimonialButton) {
+        const index = testimonials.findIndex((item) => item.id === moveTestimonialButton.dataset.moveTestimonial);
+        const targetIndex = index + Number(moveTestimonialButton.dataset.direction);
+        if (targetIndex < 0 || targetIndex >= testimonials.length) return;
+        const next = [...testimonials];
+        [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+        testimonials = await reorderTestimonials(next.map((item) => item.id));
+        render();
+      }
+      if (editInstagramButton) editInstagram(editInstagramButton.dataset.editInstagram);
+      if (toggleInstagramButton) {
+        const item = instagram.find((entry) => entry.id === toggleInstagramButton.dataset.toggleInstagram);
+        const saved = await saveInstagramItem({ ...item, active: !item.active });
+        instagram = instagram.map((entry) => (entry.id === saved.id ? saved : entry));
+        render();
+        setMessage("Foto do Instagram atualizada.");
+      }
+      if (deleteInstagramButton) {
+        if (!window.confirm("Excluir esta foto do Instagram?")) return;
+        await deleteInstagramItem(deleteInstagramButton.dataset.deleteInstagram);
+        instagram = instagram.filter((item) => item.id !== deleteInstagramButton.dataset.deleteInstagram);
+        render();
+        setMessage("Foto excluida.");
+      }
+      if (moveInstagramButton) {
+        const index = instagram.findIndex((item) => item.id === moveInstagramButton.dataset.moveInstagram);
+        const targetIndex = index + Number(moveInstagramButton.dataset.direction);
+        if (targetIndex < 0 || targetIndex >= instagram.length) return;
+        const next = [...instagram];
+        [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+        instagram = await reorderInstagramItems(next.map((item) => item.id));
         render();
       }
     } catch (error) {
@@ -512,15 +778,34 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
   categoryForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
-      const category = await createCategory(categoryForm.elements.name.value, categoryChoices().length + 1);
+      const category = await createCategory({
+        oldName: categoryForm.elements.oldName.value,
+        name: categoryForm.elements.name.value,
+        image: categoryForm.elements.image.value,
+        active: categoryForm.elements.active.checked,
+        sortOrder: categoryRecord(categoryForm.elements.oldName.value).sortOrder || categoryChoices().length + 1,
+      });
+      categoryRecords = categoryRecords.some((item) => item.name === categoryForm.elements.oldName.value)
+        ? categoryRecords.map((item) => (item.name === categoryForm.elements.oldName.value ? category : item))
+        : [...categoryRecords, category];
       categories = [...new Set([...categories, category.name])];
       categoryForm.reset();
+      categoryPreview.src = FALLBACK_IMAGE;
       categoryModal.hidden = true;
       render();
       setMessage("Categoria criada com sucesso.");
     } catch (error) {
       setMessage(error.message, true);
     }
+  });
+
+  categoryFile.addEventListener("change", async () => {
+    const file = categoryFile.files[0];
+    if (!file) return;
+    categoryPreview.src = URL.createObjectURL(file);
+    const url = await uploadProductImage(file);
+    categoryForm.elements.image.value = url;
+    categoryPreview.src = url;
   });
 
   root.querySelector("[data-clear-form]").addEventListener("click", clearForm);
@@ -572,16 +857,88 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
   galleryForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
+      const existing = gallery.find((item) => item.id === galleryForm.elements.id.value);
       const saved = await saveGalleryItem({
+        id: galleryForm.elements.id.value,
         title: galleryForm.elements.title.value,
+        caption: galleryForm.elements.caption.value,
         image: galleryForm.elements.image.value,
-        sortOrder: gallery.length + 1,
+        active: galleryForm.elements.active.checked,
+        cover: galleryForm.elements.cover.checked,
+        sortOrder: existing?.sortOrder || gallery.length + 1,
       });
-      gallery = [...gallery, saved];
-      galleryForm.reset();
-      galleryPreview.src = FALLBACK_IMAGE;
+      gallery = gallery.some((item) => item.id === saved.id)
+        ? gallery.map((item) => (item.id === saved.id ? saved : { ...item, cover: saved.cover ? false : item.cover }))
+        : [...gallery.map((item) => ({ ...item, cover: saved.cover ? false : item.cover })), saved];
+      clearGalleryForm();
       render();
-      setMessage("Foto adicionada a galeria.");
+      setMessage("Foto salva na galeria.");
+    } catch (error) {
+      setMessage(error.message, true);
+    }
+  });
+
+  testimonialFile.addEventListener("change", async () => {
+    const file = testimonialFile.files[0];
+    if (!file) return;
+    testimonialPreview.src = URL.createObjectURL(file);
+    const url = await uploadProductImage(file);
+    testimonialForm.elements.image.value = url;
+    testimonialPreview.src = url;
+  });
+
+  testimonialForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const existing = testimonials.find((item) => item.id === testimonialForm.elements.id.value);
+      const saved = await saveTestimonial({
+        id: testimonialForm.elements.id.value,
+        name: testimonialForm.elements.name.value,
+        city: testimonialForm.elements.city.value,
+        image: testimonialForm.elements.image.value,
+        rating: testimonialForm.elements.rating.value,
+        comment: testimonialForm.elements.comment.value,
+        active: testimonialForm.elements.active.checked,
+        sortOrder: existing?.sortOrder || testimonials.length + 1,
+      });
+      testimonials = testimonials.some((item) => item.id === saved.id)
+        ? testimonials.map((item) => (item.id === saved.id ? saved : item))
+        : [...testimonials, saved];
+      clearTestimonialForm();
+      render();
+      setMessage("Depoimento salvo com sucesso.");
+    } catch (error) {
+      setMessage(error.message, true);
+    }
+  });
+
+  instagramFile.addEventListener("change", async () => {
+    const file = instagramFile.files[0];
+    if (!file) return;
+    instagramPreview.src = URL.createObjectURL(file);
+    const url = await uploadProductImage(file);
+    instagramForm.elements.image.value = url;
+    instagramPreview.src = url;
+  });
+
+  instagramForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const existing = instagram.find((item) => item.id === instagramForm.elements.id.value);
+      const saved = await saveInstagramItem({
+        id: instagramForm.elements.id.value,
+        title: instagramForm.elements.title.value,
+        link: instagramForm.elements.link.value,
+        image: instagramForm.elements.image.value,
+        active: instagramForm.elements.active.checked,
+        sortOrder: existing?.sortOrder || instagram.length + 1,
+      });
+      instagram = instagram.some((item) => item.id === saved.id)
+        ? instagram.map((item) => (item.id === saved.id ? saved : item))
+        : [...instagram, saved];
+      clearInstagramForm();
+      render();
+      setMessage("Foto do Instagram salva.");
     } catch (error) {
       setMessage(error.message, true);
     }
@@ -608,6 +965,67 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     settings = await saveStoreSettings({ ...settings, ...Object.fromEntries(new FormData(settingsForm)) });
     render();
     setMessage("Configuracoes salvas com sucesso.");
+  });
+
+  footerForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    settings = await saveStoreSettings({ ...settings, ...Object.fromEntries(new FormData(footerForm)) });
+    render();
+    setMessage("Rodape salvo com sucesso.");
+  });
+
+  function enableDragReorder(container, selector, reorder) {
+    let draggedId = "";
+    container.addEventListener("dragstart", (event) => {
+      const card = event.target.closest(selector);
+      if (!card) return;
+      draggedId = card.dataset.galleryCard || card.dataset.testimonialCard || card.dataset.instagramCard;
+      event.dataTransfer.effectAllowed = "move";
+    });
+    container.addEventListener("dragover", (event) => {
+      if (event.target.closest(selector)) event.preventDefault();
+    });
+    container.addEventListener("drop", async (event) => {
+      const card = event.target.closest(selector);
+      const targetId = card?.dataset.galleryCard || card?.dataset.testimonialCard || card?.dataset.instagramCard;
+      if (!draggedId || !targetId || draggedId === targetId) return;
+      event.preventDefault();
+      await reorder(draggedId, targetId);
+      draggedId = "";
+    });
+  }
+
+  enableDragReorder(galleryAdminList, "[data-gallery-card]", async (fromId, toId) => {
+    const next = [...gallery];
+    const from = next.findIndex((item) => item.id === fromId);
+    const to = next.findIndex((item) => item.id === toId);
+    if (from < 0 || to < 0) return;
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    gallery = await reorderGalleryItems(next.map((entry) => entry.id));
+    render();
+  });
+
+  enableDragReorder(testimonialAdminList, "[data-testimonial-card]", async (fromId, toId) => {
+    const next = [...testimonials];
+    const from = next.findIndex((item) => item.id === fromId);
+    const to = next.findIndex((item) => item.id === toId);
+    if (from < 0 || to < 0) return;
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    testimonials = await reorderTestimonials(next.map((entry) => entry.id));
+    render();
+  });
+
+  enableDragReorder(instagramAdminList, "[data-instagram-card]", async (fromId, toId) => {
+    const next = [...instagram];
+    const from = next.findIndex((item) => item.id === fromId);
+    const to = next.findIndex((item) => item.id === toId);
+    if (from < 0 || to < 0) return;
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    instagram = await reorderInstagramItems(next.map((entry) => entry.id));
+    render();
   });
 
   render();

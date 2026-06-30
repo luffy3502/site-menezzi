@@ -86,6 +86,10 @@ function baseHead(title, description, image, url, type = "website") {
     <meta property="og:image" content="${escapeHtml(image)}" />
     <meta property="og:url" content="${escapeHtml(url)}" />
     <meta property="og:type" content="${escapeHtml(type)}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(title)}" />
+    <meta name="twitter:description" content="${escapeHtml(description)}" />
+    <meta name="twitter:image" content="${escapeHtml(image)}" />
     <link rel="icon" href="/assets/logo-menezzi.jpg" />
     <link rel="stylesheet" href="/styles.css" />
   `;
@@ -147,6 +151,7 @@ function renderError(req) {
 function renderProduct(req, product, related) {
   const url = absoluteUrl(req, productPath(product));
   const image = imageUrl(req, product.image);
+  const images = [image];
   const offerLabel = OFFER_LABELS[product.offerType] || "Oferta";
   const description = product.description || "Produto selecionado da MENEZZI.";
   const relatedCards = related
@@ -181,6 +186,9 @@ function renderProduct(req, product, related) {
       <article class="product-detail">
         <div class="product-detail-media">
           <img src="${escapeHtml(image)}" alt="${escapeHtml(product.name)}" />
+          <div class="product-detail-thumbs">
+            ${images.map((item) => `<img src="${escapeHtml(item)}" alt="${escapeHtml(product.name)}" loading="lazy" />`).join("")}
+          </div>
         </div>
         <div class="product-detail-info">
           <div class="modal-labels">
@@ -197,9 +205,14 @@ function renderProduct(req, product, related) {
           <h1>${escapeHtml(product.name)}</h1>
           <p>${escapeHtml(description)}</p>
           <strong class="modal-price">${formatCurrency(product.price)}</strong>
-          <a class="button button-primary ${product.available ? "" : "is-disabled"}" href="${whatsappUrl(product, url)}" target="_blank" rel="noopener">
-            Comprar pelo WhatsApp
-          </a>
+          <div class="product-page-actions">
+            <a class="button button-primary ${product.available ? "" : "is-disabled"}" href="${whatsappUrl(product, url)}" target="_blank" rel="noopener">
+              Comprar pelo WhatsApp
+            </a>
+            <button class="button button-light" type="button" data-share-product>Compartilhar</button>
+            <button class="button button-light" type="button" data-copy-product>Copiar link</button>
+            <a class="button button-light" href="/#vitrine">Voltar</a>
+          </div>
         </div>
       </article>
 
@@ -211,6 +224,15 @@ function renderProduct(req, product, related) {
         <div class="related-grid">${relatedCards || '<p class="empty-state">Nenhum produto relacionado no momento.</p>'}</div>
       </section>
     </main>
+    <script>
+      document.querySelector("[data-share-product]")?.addEventListener("click", async () => {
+        if (navigator.share) await navigator.share({ title: ${JSON.stringify(product.name)}, url: ${JSON.stringify(url)} });
+      });
+      document.querySelector("[data-copy-product]")?.addEventListener("click", async (event) => {
+        await navigator.clipboard?.writeText(${JSON.stringify(url)});
+        event.currentTarget.textContent = "Link copiado";
+      });
+    </script>
   </body>
 </html>`;
 }

@@ -7,6 +7,11 @@
       name="description"
       content="MENEZZI: vitrine de bolsas, acessorios, perfumaria e presentes com pedidos pelo WhatsApp."
     />
+    <meta property="og:title" content="MENEZZI | Boutique premium" />
+    <meta property="og:description" content="Bolsas, acessorios, perfumaria e presentes selecionados com atendimento via WhatsApp." />
+    <meta property="og:image" content="assets/hero-bolsa-preta.jpg" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="theme-color" content="#eee6d7" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -16,6 +21,16 @@
     <link rel="apple-touch-icon" href="assets/logo-menezzi.jpg" />
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Store",
+        "name": "MENEZZI",
+        "image": "assets/logo-menezzi.jpg",
+        "url": "/",
+        "sameAs": ["https://www.instagram.com/lojamenezzi/"]
+      }
+    </script>
   </head>
   <body>
     <header class="site-header" data-header>
@@ -42,20 +57,22 @@
 
     <main>
       <section class="hero" id="inicio">
-        <div class="hero-media" aria-hidden="true">
-          <img src="assets/hero-bolsa-preta.jpg" alt="" />
-        </div>
         <div class="hero-content reveal is-visible">
           <span class="eyebrow">Boutique MENEZZI</span>
           <h1 data-banner-title>Produtos escolhidos com elegancia e carinho.</h1>
+          <p class="hero-slogan" data-hero-slogan>Elegancia, qualidade e exclusividade para mulheres que valorizam cada detalhe.</p>
           <p data-banner-subtitle>
-            Veja bolsas, acessorios, perfumaria e presentes em uma vitrine simples. Escolha o produto e finalize o
+            Veja bolsas, acessorios, perfumaria e presentes em uma vitrine sofisticada. Escolha o produto e finalize o
             atendimento diretamente pelo WhatsApp.
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="#vitrine" data-banner-button>Ver produtos</a>
+            <a class="button button-primary icon-button" href="#vitrine" data-banner-button><span aria-hidden="true">→</span> Ver produtos</a>
             <a class="button button-light" data-whatsapp-general target="_blank" rel="noopener">Falar no WhatsApp</a>
           </div>
+          <small data-impact-phrase>Curadoria feminina com atendimento proximo e acabamento impecavel.</small>
+        </div>
+        <div class="hero-media reveal is-visible">
+          <img src="assets/hero-bolsa-preta.jpg" alt="Bolsa premium MENEZZI em destaque" data-hero-image />
         </div>
       </section>
 
@@ -124,12 +141,11 @@
               organizado e pensado para receber voce.
             </p>
           </div>
-          <div class="trust-strip" aria-label="Diferenciais da MENEZZI">
-            <strong>★★★★★</strong>
-            <span>Clientes satisfeitos</span>
-            <span>Pecas exclusivas</span>
-            <span>Atendimento personalizado</span>
-            <span>Novidades toda semana</span>
+          <div class="premium-card-grid" aria-label="Nosso espaco">
+            <article><span class="icon icon-heart"></span><h3>Atendimento Personalizado</h3><p>Cuidado em cada escolha e orientacao proxima.</p></article>
+            <article><span class="icon icon-bag"></span><h3>Produtos Exclusivos</h3><p>Selecao com identidade, beleza e acabamento.</p></article>
+            <article><span class="icon icon-spark"></span><h3>Novidades Frequentes</h3><p>Vitrine viva, renovada com pecas especiais.</p></article>
+            <article><span class="icon icon-chat"></span><h3>Atendimento via WhatsApp</h3><p>Compra simples, humana e direta.</p></article>
           </div>
         </div>
       </section>
@@ -166,12 +182,31 @@
           <span class="section-kicker">Instagram</span>
           <h2>Acompanhe nossas novidades</h2>
           <p>Veja lancamentos, combinacoes, presentes e novidades diretamente no Instagram da MENEZZI.</p>
-          <a class="button button-primary" href="https://www.instagram.com/lojamenezzi/" target="_blank" rel="noopener">
+          <a class="button button-primary" href="https://www.instagram.com/lojamenezzi/" target="_blank" rel="noopener" data-instagram-link>
             Visitar Instagram
           </a>
         </div>
-        <div class="instagram-photo reveal">
-          <img src="assets/bolsa-elegance.jpg" alt="Bolsa em destaque na loja MENEZZI" />
+        <div class="instagram-grid reveal" data-instagram-grid></div>
+      </section>
+
+      <section class="section testimonials" id="depoimentos" data-testimonials-section>
+        <div class="section-heading reveal">
+          <span class="section-kicker">Depoimentos</span>
+          <h2>Clientes que vivem a experiencia MENEZZI.</h2>
+        </div>
+        <div class="testimonial-carousel reveal" data-testimonial-carousel></div>
+      </section>
+
+      <section class="section benefits" id="escolher">
+        <div class="section-heading reveal">
+          <span class="section-kicker">Por que escolher</span>
+          <h2>Detalhes que elevam cada compra.</h2>
+        </div>
+        <div class="benefit-grid">
+          <article class="benefit reveal"><span class="icon icon-check"></span><h3>Produtos Selecionados</h3><p>Curadoria focada em estilo, utilidade e qualidade.</p></article>
+          <article class="benefit reveal"><span class="icon icon-heart"></span><h3>Atendimento Personalizado</h3><p>Voce recebe suporte para escolher com seguranca.</p></article>
+          <article class="benefit reveal"><span class="icon icon-gem"></span><h3>Qualidade Garantida</h3><p>Itens avaliados com olhar atento aos detalhes.</p></article>
+          <article class="benefit reveal"><span class="icon icon-spark"></span><h3>Novidades Frequentes</h3><p>A vitrine acompanha novas temporadas e desejos.</p></article>
         </div>
       </section>
 
@@ -187,15 +222,25 @@
     <div class="modal-overlay" data-product-modal hidden></div>
     <div class="modal-overlay gallery-modal" data-gallery-modal hidden></div>
 
-    <footer class="site-footer">
-      <div>
+    <footer class="site-footer" data-footer>
+      <div class="footer-brand">
         <img src="assets/logo-menezzi.jpg" alt="Logo MENEZZI" />
-        <p>Bolsas, acessorios, perfumaria e presentes</p>
+        <p data-footer-description>Bolsas, acessorios, perfumaria e presentes</p>
       </div>
       <div class="footer-links">
+        <a href="#inicio">Inicio</a>
+        <a href="#vitrine">Vitrine</a>
+        <a href="#categorias">Categorias</a>
         <a href="admin/">Admin</a>
-        <a href="https://www.instagram.com/lojamenezzi/" target="_blank" rel="noopener">Instagram</a>
+        <a href="https://www.instagram.com/lojamenezzi/" target="_blank" rel="noopener" data-footer-instagram>Instagram</a>
+        <a href="#" target="_blank" rel="noopener" data-footer-facebook hidden>Facebook</a>
         <a data-whatsapp-general target="_blank" rel="noopener">WhatsApp</a>
+      </div>
+      <div class="footer-info">
+        <p data-footer-address></p>
+        <p data-footer-hours></p>
+        <p data-footer-payments>Pix, credito, debito e dinheiro</p>
+        <a data-footer-map target="_blank" rel="noopener" hidden>Ver mapa</a>
       </div>
       <p>© 2026 MENEZZI. Todos os direitos reservados.</p>
     </footer>
@@ -208,6 +253,7 @@
       aria-label="Falar com a MENEZZI pelo WhatsApp"
     >
       <span aria-hidden="true"></span>
+      <strong>WhatsApp</strong>
     </a>
 
     <noscript>Para usar a vitrine e os filtros, ative o JavaScript do navegador.</noscript>

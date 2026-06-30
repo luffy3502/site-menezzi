@@ -6,6 +6,8 @@ function normalizeCategory(row) {
   return {
     id: row.id || row.name,
     name: row.name,
+    image: row.image_url || "",
+    active: row.is_active ?? true,
     sortOrder: Number(row.sort_order || 0),
   };
 }
@@ -14,7 +16,34 @@ function normalizeGallery(row) {
   return {
     id: row.id,
     title: row.title || "",
+    caption: row.caption || "",
     image: row.image_url || "",
+    active: row.is_active ?? true,
+    cover: row.is_cover ?? false,
+    sortOrder: Number(row.sort_order || 0),
+  };
+}
+
+function normalizeTestimonial(row) {
+  return {
+    id: row.id,
+    name: row.name || "",
+    city: row.city || "",
+    image: row.image_url || "",
+    rating: Number(row.rating || 5),
+    comment: row.comment || "",
+    active: row.is_active ?? true,
+    sortOrder: Number(row.sort_order || 0),
+  };
+}
+
+function normalizeInstagramPhoto(row) {
+  return {
+    id: row.id,
+    title: row.title || "",
+    image: row.image_url || "",
+    link: row.link_url || "",
+    active: row.is_active ?? true,
     sortOrder: Number(row.sort_order || 0),
   };
 }
@@ -37,6 +66,13 @@ function normalizeSettings(row) {
       "Veja bolsas, acessorios, perfumaria e presentes em uma vitrine simples. Escolha o produto e finalize o atendimento diretamente pelo WhatsApp.",
     bannerButtonText: settings.bannerButtonText || "Ver produtos",
     bannerButtonLink: settings.bannerButtonLink || "#vitrine",
+    heroSlogan: settings.heroSlogan || "Elegancia, qualidade e exclusividade para mulheres que valorizam cada detalhe.",
+    impactPhrase: settings.impactPhrase || "Curadoria feminina com atendimento proximo e acabamento impecavel.",
+    facebook: settings.facebook || "",
+    mapUrl: settings.mapUrl || "",
+    paymentMethods: settings.paymentMethods || "Pix, credito, debito e dinheiro",
+    footerDescription: settings.footerDescription || "Bolsas, acessorios, perfumaria e presentes selecionados com olhar de boutique.",
+    institutionalVideo: settings.institutionalVideo || "",
   };
 }
 
@@ -55,12 +91,18 @@ async function loadContent() {
     safeSelect("store_gallery?select=*&order=sort_order.asc,created_at.desc", []),
     safeSelect("store_settings?select=*&id=eq.main&limit=1", []),
   ]);
+  const [testimonialRows, instagramRows] = await Promise.all([
+    safeSelect("store_testimonials?select=*&order=sort_order.asc,created_at.desc", []),
+    safeSelect("store_instagram?select=*&order=sort_order.asc,created_at.desc", []),
+  ]);
 
   return {
     categories: categoriesRows.length
       ? categoriesRows.map(normalizeCategory)
-      : DEFAULT_CATEGORIES.map((name, index) => ({ id: name, name, sortOrder: index + 1 })),
+      : DEFAULT_CATEGORIES.map((name, index) => ({ id: name, name, image: "", active: true, sortOrder: index + 1 })),
     gallery: galleryRows.map(normalizeGallery),
+    testimonials: testimonialRows.map(normalizeTestimonial),
+    instagram: instagramRows.map(normalizeInstagramPhoto),
     settings: normalizeSettings(settingsRows[0]),
   };
 }
@@ -68,10 +110,26 @@ async function loadContent() {
 async function createCategory(body) {
   const name = String(body.name || "").trim();
   if (!name) throw new Error("Nome da categoria obrigatorio.");
+  const oldName = String(body.oldName || body.id || "").trim();
+  const payload = {
+    name,
+    image_url: String(body.image || body.imageUrl || "").trim(),
+    is_active: body.active ?? body.isActive ?? true,
+    sort_order: Number(body.sortOrder || 0),
+  };
+  if (oldName && oldName !== name) {
+    await supabaseRest(`product_categories?name=eq.${encodeURIComponent(oldName)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(payload),
+    });
+    const rows = await supabaseRest(`product_categories?name=eq.${encodeURIComponent(name)}&limit=1`);
+    return normalizeCategory(rows[0]);
+  }
   const rows = await supabaseRest("product_categories", {
     method: "POST",
     headers: { Prefer: "return=representation,resolution=merge-duplicates" },
-    body: JSON.stringify({ name, sort_order: Number(body.sortOrder || 0) }),
+    body: JSON.stringify(payload),
   });
   return normalizeCategory(rows[0]);
 }
@@ -84,10 +142,19 @@ async function deleteCategory(name) {
 async function saveGallery(body) {
   const payload = {
     title: String(body.title || "").trim(),
+    caption: String(body.caption || "").trim(),
     image_url: String(body.image || body.imageUrl || "").trim(),
+    is_active: body.active ?? body.isActive ?? true,
+    is_cover: body.cover ?? body.isCover ?? false,
     sort_order: Number(body.sortOrder || 0),
   };
   if (!payload.image_url) throw new Error("Imagem da galeria obrigatoria.");
+  if (payload.is_cover) {
+    await supabaseRest("store_gallery?is_cover=eq.true", {
+      method: "PATCH",
+      body: JSON.stringify({ is_cover: false }),
+    }).catch(() => null);
+  }
   const path = body.id ? `store_gallery?id=eq.${encodeURIComponent(body.id)}` : "store_gallery";
   const rows = await supabaseRest(path, {
     method: body.id ? "PATCH" : "POST",
@@ -95,6 +162,80 @@ async function saveGallery(body) {
     body: JSON.stringify(payload),
   });
   return normalizeGallery(rows[0]);
+}
+
+async function saveTestimonial(body) {
+  const payload = {
+    name: String(body.name || "").trim(),
+    city: String(body.city || "").trim(),
+    image_url: String(body.image || body.imageUrl || "").trim(),
+    rating: Math.max(1, Math.min(5, Number(body.rating || 5))),
+    comment: String(body.comment || "").trim(),
+    is_active: body.active ?? body.isActive ?? true,
+    sort_order: Number(body.sortOrder || 0),
+  };
+  if (!payload.name || !payload.comment) throw new Error("Nome e comentario sao obrigatorios.");
+  const path = body.id ? `store_testimonials?id=eq.${encodeURIComponent(body.id)}` : "store_testimonials";
+  const rows = await supabaseRest(path, {
+    method: body.id ? "PATCH" : "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(payload),
+  });
+  return normalizeTestimonial(rows[0]);
+}
+
+async function deleteTestimonial(id) {
+  await supabaseRest(`store_testimonials?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+  return { ok: true };
+}
+
+async function reorderTestimonials(ids) {
+  await Promise.all(
+    ids.map((id, index) =>
+      supabaseRest(`store_testimonials?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ sort_order: index + 1 }),
+      })
+    )
+  );
+  const rows = await supabaseRest("store_testimonials?select=*&order=sort_order.asc,created_at.desc");
+  return rows.map(normalizeTestimonial);
+}
+
+async function saveInstagram(body) {
+  const payload = {
+    title: String(body.title || "").trim(),
+    image_url: String(body.image || body.imageUrl || "").trim(),
+    link_url: String(body.link || body.linkUrl || "").trim(),
+    is_active: body.active ?? body.isActive ?? true,
+    sort_order: Number(body.sortOrder || 0),
+  };
+  if (!payload.image_url) throw new Error("Imagem do Instagram obrigatoria.");
+  const path = body.id ? `store_instagram?id=eq.${encodeURIComponent(body.id)}` : "store_instagram";
+  const rows = await supabaseRest(path, {
+    method: body.id ? "PATCH" : "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(payload),
+  });
+  return normalizeInstagramPhoto(rows[0]);
+}
+
+async function deleteInstagram(id) {
+  await supabaseRest(`store_instagram?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+  return { ok: true };
+}
+
+async function reorderInstagram(ids) {
+  await Promise.all(
+    ids.map((id, index) =>
+      supabaseRest(`store_instagram?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ sort_order: index + 1 }),
+      })
+    )
+  );
+  const rows = await supabaseRest("store_instagram?select=*&order=sort_order.asc,created_at.desc");
+  return rows.map(normalizeInstagramPhoto);
 }
 
 async function deleteGallery(id) {
@@ -140,6 +281,12 @@ module.exports = async function handler(req, res) {
     if (resource === "gallery" && req.method === "POST") return sendJson(res, 201, await saveGallery(body));
     if (resource === "gallery" && req.method === "PATCH" && action === "reorder") return sendJson(res, 200, await reorderGallery(body.ids || []));
     if (resource === "gallery" && req.method === "DELETE") return sendJson(res, 200, await deleteGallery(url.searchParams.get("id")));
+    if (resource === "testimonials" && req.method === "POST") return sendJson(res, 201, await saveTestimonial(body));
+    if (resource === "testimonials" && req.method === "PATCH" && action === "reorder") return sendJson(res, 200, await reorderTestimonials(body.ids || []));
+    if (resource === "testimonials" && req.method === "DELETE") return sendJson(res, 200, await deleteTestimonial(url.searchParams.get("id")));
+    if (resource === "instagram" && req.method === "POST") return sendJson(res, 201, await saveInstagram(body));
+    if (resource === "instagram" && req.method === "PATCH" && action === "reorder") return sendJson(res, 200, await reorderInstagram(body.ids || []));
+    if (resource === "instagram" && req.method === "DELETE") return sendJson(res, 200, await deleteInstagram(url.searchParams.get("id")));
     if (resource === "settings" && req.method === "POST") return sendJson(res, 200, await saveSettings(body));
 
     return sendJson(res, 405, { error: "Metodo nao permitido." });

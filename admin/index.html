@@ -21,7 +21,10 @@
           <button type="button" data-admin-section-button="categorias"><span>⌁</span>Categorias</button>
           <button type="button" data-admin-section-button="ofertas"><span>★</span>Ofertas</button>
           <button type="button" data-admin-section-button="galeria"><span>▧</span>Galeria</button>
+          <button type="button" data-admin-section-button="depoimentos"><span>5</span>Depoimentos</button>
+          <button type="button" data-admin-section-button="instagram"><span>@</span>Instagram</button>
           <button type="button" data-admin-section-button="banner"><span>▰</span>Banner</button>
+          <button type="button" data-admin-section-button="rodape"><span>R</span>Rodape</button>
           <button type="button" data-admin-section-button="configuracoes"><span>⚙</span>Configurações</button>
         </nav>
         <div class="admin-sidebar-actions">
@@ -177,17 +180,104 @@
                 <h2>Fotos da loja</h2>
               </div>
             </div>
+            <input type="hidden" name="id" />
             <input type="hidden" name="image" />
             <label>Título opcional
               <input name="title" type="text" placeholder="Ex.: Nosso espaço" />
+            </label>
+            <label>Legenda
+              <textarea name="caption" rows="2" placeholder="Texto curto para aparecer no lightbox"></textarea>
             </label>
             <label class="upload-box compact-upload">
               <input name="imageFile" type="file" accept="image/*" data-gallery-file />
               <img class="image-preview" src="../assets/logo-menezzi.jpg" alt="Prévia da foto da galeria" data-gallery-preview />
               <span>Adicionar foto da loja</span>
             </label>
-            <button class="button button-primary" type="submit">Adicionar foto</button>
+            <div class="toggle-grid">
+              <label class="check-line"><input name="active" type="checkbox" checked /> Foto ativa</label>
+              <label class="check-line"><input name="cover" type="checkbox" /> Imagem de capa</label>
+            </div>
+            <div class="admin-actions">
+              <button class="button button-primary" type="submit">Salvar foto</button>
+              <button class="button button-light" type="button" data-clear-gallery-form>Limpar</button>
+            </div>
             <div class="gallery-admin-grid" data-gallery-admin-list></div>
+          </form>
+        </section>
+
+        <section class="admin-section" data-admin-section="depoimentos">
+          <form class="admin-card settings-form" data-testimonial-form>
+            <div class="panel-heading">
+              <div>
+                <span class="admin-card-kicker">Depoimentos</span>
+                <h2>Avaliacoes de clientes</h2>
+              </div>
+            </div>
+            <input type="hidden" name="id" />
+            <input type="hidden" name="image" />
+            <div class="settings-grid">
+              <label>Nome
+                <input name="name" type="text" placeholder="Nome da cliente" />
+              </label>
+              <label>Cidade
+                <input name="city" type="text" placeholder="Cidade" />
+              </label>
+              <label>Avaliacao
+                <select name="rating">
+                  <option value="5">5 estrelas</option>
+                  <option value="4">4 estrelas</option>
+                  <option value="3">3 estrelas</option>
+                  <option value="2">2 estrelas</option>
+                  <option value="1">1 estrela</option>
+                </select>
+              </label>
+              <label class="check-line"><input name="active" type="checkbox" checked /> Ativo</label>
+            </div>
+            <label>Comentario
+              <textarea name="comment" rows="3" placeholder="Depoimento"></textarea>
+            </label>
+            <label class="upload-box compact-upload">
+              <input name="imageFile" type="file" accept="image/*" data-testimonial-file />
+              <img class="image-preview" src="../assets/logo-menezzi.jpg" alt="Previa da cliente" data-testimonial-preview />
+              <span>Foto opcional</span>
+            </label>
+            <div class="admin-actions">
+              <button class="button button-primary" type="submit">Salvar depoimento</button>
+              <button class="button button-light" type="button" data-clear-testimonial-form>Limpar</button>
+            </div>
+            <div class="gallery-admin-grid" data-testimonial-admin-list></div>
+          </form>
+        </section>
+
+        <section class="admin-section" data-admin-section="instagram">
+          <form class="admin-card settings-form" data-instagram-form>
+            <div class="panel-heading">
+              <div>
+                <span class="admin-card-kicker">Instagram</span>
+                <h2>Grade de fotos</h2>
+              </div>
+            </div>
+            <input type="hidden" name="id" />
+            <input type="hidden" name="image" />
+            <div class="settings-grid">
+              <label>Titulo
+                <input name="title" type="text" placeholder="Ex.: Lancamento" />
+              </label>
+              <label>Link do post ou perfil
+                <input name="link" type="url" placeholder="https://www.instagram.com/..." />
+              </label>
+              <label class="check-line"><input name="active" type="checkbox" checked /> Ativo</label>
+            </div>
+            <label class="upload-box compact-upload">
+              <input name="imageFile" type="file" accept="image/*" data-instagram-file />
+              <img class="image-preview" src="../assets/logo-menezzi.jpg" alt="Previa do Instagram" data-instagram-preview />
+              <span>Adicionar foto</span>
+            </label>
+            <div class="admin-actions">
+              <button class="button button-primary" type="submit">Salvar foto</button>
+              <button class="button button-light" type="button" data-clear-instagram-form>Limpar</button>
+            </div>
+            <div class="gallery-admin-grid" data-instagram-admin-list></div>
           </form>
         </section>
 
@@ -210,6 +300,12 @@
             <label>Subtítulo
               <textarea name="bannerSubtitle" rows="3"></textarea>
             </label>
+            <label>Slogan
+              <input name="heroSlogan" type="text" />
+            </label>
+            <label>Frase de impacto
+              <input name="impactPhrase" type="text" />
+            </label>
             <label>Texto do botão
               <input name="bannerButtonText" type="text" />
             </label>
@@ -217,6 +313,35 @@
               <input name="bannerButtonLink" type="text" placeholder="#vitrine" />
             </label>
             <button class="button button-primary" type="submit">Salvar banner</button>
+          </form>
+        </section>
+
+        <section class="admin-section" data-admin-section="rodape">
+          <form class="admin-card settings-form" data-footer-form>
+            <div class="panel-heading">
+              <div>
+                <span class="admin-card-kicker">Rodape</span>
+                <h2>Informacoes finais do site</h2>
+              </div>
+            </div>
+            <div class="settings-grid">
+              <label>Descricao
+                <textarea name="footerDescription" rows="3"></textarea>
+              </label>
+              <label>Facebook
+                <input name="facebook" type="url" />
+              </label>
+              <label>Mapa Google
+                <input name="mapUrl" type="url" />
+              </label>
+              <label>Formas de pagamento
+                <input name="paymentMethods" type="text" />
+              </label>
+              <label>Video institucional
+                <input name="institutionalVideo" type="url" />
+              </label>
+            </div>
+            <button class="button button-primary" type="submit">Salvar rodape</button>
           </form>
         </section>
 
@@ -240,6 +365,9 @@
               </label>
               <label>Instagram
                 <input name="instagram" type="url" />
+              </label>
+              <label>Facebook
+                <input name="facebook" type="url" />
               </label>
               <label>Endereço
                 <input name="address" type="text" />
@@ -265,9 +393,17 @@
         <button class="modal-close" type="button" aria-label="Fechar" data-close-category-modal>X</button>
         <span class="admin-card-kicker">Nova categoria</span>
         <h2>Criar categoria</h2>
+        <input type="hidden" name="oldName" />
+        <input type="hidden" name="image" />
         <label>Nome da categoria
           <input name="name" type="text" required placeholder="Ex.: Perfumes" />
         </label>
+        <label class="upload-box compact-upload">
+          <input name="imageFile" type="file" accept="image/*" data-category-file />
+          <img class="image-preview" src="../assets/logo-menezzi.jpg" alt="Previa da categoria" data-category-preview />
+          <span>Imagem da categoria</span>
+        </label>
+        <label class="check-line"><input name="active" type="checkbox" checked /> Categoria ativa</label>
         <button class="button button-primary" type="submit">Salvar categoria</button>
       </form>
     </div>

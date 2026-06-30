@@ -28,6 +28,12 @@ export function CategoryFilter(container, onChange) {
 
   return {
     render,
+    setActiveCategory: (category) => {
+      activeCategory = category;
+      container.querySelectorAll("[data-category]").forEach((item) => {
+        item.classList.toggle("is-active", item.dataset.category === activeCategory);
+      });
+    },
     getActiveCategory: () => activeCategory,
   };
 }

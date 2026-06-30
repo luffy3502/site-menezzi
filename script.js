@@ -21,13 +21,31 @@ const offersGridEl = document.querySelector("[data-offers-grid]");
 const emptyState = document.querySelector("[data-empty-state]");
 const galleryEl = document.querySelector("[data-store-gallery]");
 const galleryModal = document.querySelector("[data-gallery-modal]");
-const heroImage = document.querySelector(".hero-media img");
+const heroImage = document.querySelector("[data-hero-image]");
 const bannerTitle = document.querySelector("[data-banner-title]");
 const bannerSubtitle = document.querySelector("[data-banner-subtitle]");
 const bannerButton = document.querySelector("[data-banner-button]");
+const heroSlogan = document.querySelector("[data-hero-slogan]");
+const impactPhrase = document.querySelector("[data-impact-phrase]");
+const testimonialsSection = document.querySelector("[data-testimonials-section]");
+const testimonialCarousel = document.querySelector("[data-testimonial-carousel]");
+const instagramGrid = document.querySelector("[data-instagram-grid]");
+const instagramLink = document.querySelector("[data-instagram-link]");
+const footerDescription = document.querySelector("[data-footer-description]");
+const footerInstagram = document.querySelector("[data-footer-instagram]");
+const footerFacebook = document.querySelector("[data-footer-facebook]");
+const footerAddress = document.querySelector("[data-footer-address]");
+const footerHours = document.querySelector("[data-footer-hours]");
+const footerPayments = document.querySelector("[data-footer-payments]");
+const footerMap = document.querySelector("[data-footer-map]");
 const modal = ProductModal(document.querySelector("[data-product-modal]"));
 
 let revealObserver;
+let navObserver;
+let storefrontContent = { gallery: [], categories: [], testimonials: [], instagram: [], settings: {} };
+let activeGallery = [];
+let activeGalleryIndex = 0;
+let testimonialTimer;
 const categoryFilter = CategoryFilter(categoryFilterEl, (category) => {
   state.category = category;
   renderCatalog();
@@ -49,28 +67,118 @@ async function loadStorefrontContent() {
 
 function applyStorefrontContent(content) {
   if (!content) return;
+  storefrontContent = {
+    gallery: content.gallery || [],
+    categories: content.categories || [],
+    testimonials: content.testimonials || [],
+    instagram: content.instagram || [],
+    settings: content.settings || {},
+  };
   const settings = content.settings || {};
   if (settings.primaryColor) document.documentElement.style.setProperty("--ink", settings.primaryColor);
   if (settings.accentColor) document.documentElement.style.setProperty("--gold", settings.accentColor);
+  if (settings.whatsapp) storeConfig.whatsappNumber = String(settings.whatsapp).replace(/\D/g, "") || storeConfig.whatsappNumber;
   if (settings.bannerImage && heroImage) heroImage.src = settings.bannerImage;
   if (settings.bannerTitle && bannerTitle) bannerTitle.textContent = settings.bannerTitle;
   if (settings.bannerSubtitle && bannerSubtitle) bannerSubtitle.textContent = settings.bannerSubtitle;
-  if (settings.bannerButtonText && bannerButton) bannerButton.textContent = settings.bannerButtonText;
+  if (settings.heroSlogan && heroSlogan) heroSlogan.textContent = settings.heroSlogan;
+  if (settings.impactPhrase && impactPhrase) impactPhrase.textContent = settings.impactPhrase;
+  if (settings.bannerButtonText && bannerButton) bannerButton.innerHTML = `<span aria-hidden="true">→</span> ${settings.bannerButtonText}`;
   if (settings.bannerButtonLink && bannerButton) bannerButton.href = settings.bannerButtonLink;
+  if (settings.instagram && instagramLink) instagramLink.href = settings.instagram;
+  if (settings.instagram && footerInstagram) footerInstagram.href = settings.instagram;
+  if (settings.facebook && footerFacebook) {
+    footerFacebook.href = settings.facebook;
+    footerFacebook.hidden = false;
+  }
+  if (settings.footerDescription && footerDescription) footerDescription.textContent = settings.footerDescription;
+  if (footerAddress) footerAddress.textContent = settings.address || "";
+  if (footerHours) footerHours.textContent = settings.hours || "";
+  if (footerPayments) footerPayments.textContent = settings.paymentMethods || "";
+  if (settings.mapUrl && footerMap) {
+    footerMap.href = settings.mapUrl;
+    footerMap.hidden = false;
+  }
 
-  const gallery = content.gallery || [];
+  const gallery = (content.gallery || []).filter((item) => item.active !== false);
   if (gallery.length && galleryEl) {
-    galleryEl.innerHTML = gallery
+    const cover = gallery.find((item) => item.cover);
+    activeGallery = cover ? [cover, ...gallery.filter((item) => item.id !== cover.id)] : gallery;
+    galleryEl.innerHTML = activeGallery
       .slice(0, 6)
       .map(
         (item, index) => `
-          <button type="button" class="mosaic-item ${index === 0 ? "large" : ""} ${index === 3 ? "tall" : ""}" data-gallery-image="${item.image}">
+          <button type="button" class="mosaic-item ${index === 0 ? "large" : ""} ${index === 3 ? "tall" : ""}" data-gallery-index="${index}" data-gallery-image="${item.image}">
             <img src="${item.image}" alt="${item.title || "Foto da loja MENEZZI"}" loading="lazy" />
+            <span>${item.title || "MENEZZI"}</span>
           </button>
         `
       )
       .join("");
   }
+  renderTestimonials();
+  renderInstagram();
+}
+
+function renderTestimonials() {
+  const testimonials = (storefrontContent.testimonials || []).filter((item) => item.active !== false);
+  if (!testimonialCarousel || !testimonialsSection) return;
+  if (!testimonials.length) {
+    testimonialsSection.hidden = true;
+    return;
+  }
+  testimonialsSection.hidden = false;
+  testimonialCarousel.innerHTML = testimonials
+    .map(
+      (item, index) => `
+        <article class="testimonial-card ${index === 0 ? "is-active" : ""}" data-testimonial-slide="${index}">
+          <div class="testimonial-person">
+            <img src="${item.image || "assets/logo-menezzi.jpg"}" alt="${item.name}" loading="lazy" />
+            <div>
+              <strong>${item.name}</strong>
+              <span>${item.city || "Cliente MENEZZI"}</span>
+            </div>
+          </div>
+          <div class="stars" aria-label="${item.rating || 5} estrelas">${"★".repeat(Number(item.rating || 5))}</div>
+          <p>${item.comment}</p>
+        </article>
+      `
+    )
+    .join("");
+
+  window.clearInterval(testimonialTimer);
+  if (testimonials.length > 1) {
+    let index = 0;
+    testimonialTimer = window.setInterval(() => {
+      const slides = testimonialCarousel.querySelectorAll("[data-testimonial-slide]");
+      slides[index]?.classList.remove("is-active");
+      index = (index + 1) % slides.length;
+      slides[index]?.classList.add("is-active");
+    }, 5200);
+  }
+}
+
+function renderInstagram() {
+  if (!instagramGrid) return;
+  const photos = (storefrontContent.instagram || []).filter((item) => item.active !== false);
+  const fallback = [
+    { image: "assets/bolsa-elegance.jpg", title: "Novidades MENEZZI", link: storefrontContent.settings.instagram },
+    { image: "assets/bolsa-tote.jpg", title: "Produtos selecionados", link: storefrontContent.settings.instagram },
+    { image: "assets/bolsa-classica.jpg", title: "Estilo premium", link: storefrontContent.settings.instagram },
+    { image: "assets/bolsa-casual-chic.jpg", title: "Curadoria feminina", link: storefrontContent.settings.instagram },
+  ];
+  const items = photos.length ? photos : fallback;
+  instagramGrid.innerHTML = items
+    .slice(0, 6)
+    .map(
+      (item) => `
+        <a class="instagram-tile" href="${item.link || storefrontContent.settings.instagram || "https://www.instagram.com/lojamenezzi/"}" target="_blank" rel="noopener">
+          <img src="${item.image}" alt="${item.title || "Instagram MENEZZI"}" loading="lazy" />
+          <span>${item.title || "Ver no Instagram"}</span>
+        </a>
+      `
+    )
+    .join("");
 }
 
 function availableProducts() {
@@ -110,17 +218,28 @@ function renderOffers() {
 }
 
 function renderCategories() {
-  const categories = getCategories(availableProducts());
-  categoryFilter.render(categories);
+  const contentCategories = (storefrontContent.categories || []).filter((category) => category.active !== false);
+  const productCategories = getCategories(availableProducts());
+  const categories = contentCategories.length
+    ? contentCategories.filter((category) => productCategories.includes(category.name) || category.active !== false)
+    : productCategories.map((name) => ({ name, image: "", active: true }));
+  categoryFilter.render(categories.map((category) => category.name || category));
   categorySummary.innerHTML = categories.length
     ? categories
         .map((category) => {
-          const total = availableProducts().filter((product) => product.category === category).length;
+          const name = category.name || category;
+          const total = availableProducts().filter((product) => product.category === name).length;
+          const firstProduct = availableProducts().find((product) => product.category === name);
+          const image = category.image || firstProduct?.image || "assets/logo-menezzi.jpg";
           return `
             <article class="category-card reveal">
-              <span class="icon icon-bag" aria-hidden="true"></span>
-              <h3>${category}</h3>
+              <img src="${image}" alt="${name}" loading="lazy" />
+              <div>
+                <span class="icon icon-bag" aria-hidden="true"></span>
+                <h3>${name}</h3>
+              </div>
               <p>${total} ${total === 1 ? "produto disponivel" : "produtos disponiveis"} na vitrine.</p>
+              <a class="button button-light" href="#vitrine" data-category-jump="${name}">Ver produtos</a>
             </article>
           `;
         })
@@ -159,6 +278,21 @@ function observeRevealItems() {
   revealItems.forEach((item) => revealObserver.observe(item));
 }
 
+function observeActiveNav() {
+  const links = [...document.querySelectorAll(".site-nav a[href^='#']")];
+  const sections = links.map((link) => document.querySelector(link.getAttribute("href"))).filter(Boolean);
+  if (!("IntersectionObserver" in window) || !sections.length) return;
+  navObserver = new IntersectionObserver(
+    (entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      links.forEach((link) => link.classList.toggle("is-active", link.getAttribute("href") === `#${visible.target.id}`));
+    },
+    { rootMargin: "-30% 0px -55% 0px", threshold: [0.12, 0.3, 0.6] }
+  );
+  sections.forEach((section) => navObserver.observe(section));
+}
+
 async function boot() {
   renderSkeletons();
   const contentPromise = loadStorefrontContent().catch(() => null);
@@ -169,17 +303,44 @@ async function boot() {
   renderOffers();
   renderCatalog();
   observeRevealItems();
+  observeActiveNav();
 }
 
-function openGalleryImage(src, alt) {
+function openGalleryImage(indexOrSrc, alt) {
+  if (!activeGallery.length && galleryEl) {
+    activeGallery = [...galleryEl.querySelectorAll("[data-gallery-image]")].map((button) => ({
+      image: button.dataset.galleryImage,
+      title: button.querySelector("img")?.alt || "MENEZZI",
+      caption: "",
+    }));
+  }
+  if (typeof indexOrSrc === "number") {
+    activeGalleryIndex = indexOrSrc;
+  } else {
+    activeGalleryIndex = activeGallery.findIndex((item) => item.image === indexOrSrc);
+    if (activeGalleryIndex < 0) activeGalleryIndex = 0;
+  }
+  const item = activeGallery[activeGalleryIndex] || { image: indexOrSrc, title: alt, caption: "" };
   galleryModal.innerHTML = `
     <figure class="gallery-dialog">
       <button class="modal-close" type="button" aria-label="Fechar imagem" data-close-gallery>X</button>
-      <img src="${src}" alt="${alt}" />
+      <button class="gallery-nav prev" type="button" aria-label="Foto anterior" data-gallery-prev>‹</button>
+      <img src="${item.image}" alt="${item.title || alt || "Foto da loja MENEZZI"}" data-gallery-zoom />
+      <button class="gallery-nav next" type="button" aria-label="Proxima foto" data-gallery-next>›</button>
+      <figcaption>
+        <strong>${item.title || "MENEZZI"}</strong>
+        <span>${item.caption || "Toque na imagem para ampliar."}</span>
+      </figcaption>
     </figure>
   `;
   galleryModal.hidden = false;
   document.body.classList.add("modal-open");
+}
+
+function moveGallery(delta) {
+  if (!activeGallery.length) return;
+  activeGalleryIndex = (activeGalleryIndex + delta + activeGallery.length) % activeGallery.length;
+  openGalleryImage(activeGalleryIndex);
 }
 
 function closeGalleryImage() {
@@ -207,6 +368,16 @@ if (menuToggle && nav) {
   });
 }
 
+if (categorySummary) {
+  categorySummary.addEventListener("click", (event) => {
+    const link = event.target.closest("[data-category-jump]");
+    if (!link) return;
+    state.category = link.dataset.categoryJump;
+    categoryFilter.setActiveCategory(state.category);
+    renderCatalog();
+  });
+}
+
 window.addEventListener("scroll", () => {
   if (header) header.classList.toggle("is-scrolled", window.scrollY > 24);
 });
@@ -223,16 +394,21 @@ if (galleryEl && galleryModal) {
     const button = event.target.closest("[data-gallery-image]");
     if (!button) return;
     const image = button.querySelector("img");
-    openGalleryImage(button.dataset.galleryImage, image?.alt || "Foto da loja MENEZZI");
+    openGalleryImage(Number(button.dataset.galleryIndex || 0), image?.alt || "Foto da loja MENEZZI");
   });
 
   galleryModal.addEventListener("click", (event) => {
     if (event.target === galleryModal || event.target.closest("[data-close-gallery]")) closeGalleryImage();
+    if (event.target.closest("[data-gallery-prev]")) moveGallery(-1);
+    if (event.target.closest("[data-gallery-next]")) moveGallery(1);
+    if (event.target.closest("[data-gallery-zoom]")) event.target.classList.toggle("is-zoomed");
   });
 }
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && galleryModal && !galleryModal.hidden) closeGalleryImage();
+  if (event.key === "ArrowLeft" && galleryModal && !galleryModal.hidden) moveGallery(-1);
+  if (event.key === "ArrowRight" && galleryModal && !galleryModal.hidden) moveGallery(1);
 });
 
 boot().catch((error) => {
