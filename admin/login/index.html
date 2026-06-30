@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Login Admin | MENEZZI</title>
+    <link rel="icon" href="../../assets/logo-menezzi.jpg" />
+    <link rel="stylesheet" href="../../styles.css" />
+  </head>
+  <body class="admin-page">
+    <header class="admin-topbar">
+      <a class="brand" href="../../" aria-label="Voltar para a vitrine">
+        <img src="../../assets/logo-menezzi.jpg" alt="Logo MENEZZI" />
+      </a>
+      <div>
+        <strong>Painel de produtos</strong>
+        <span>Acesso administrativo</span>
+      </div>
+      <a class="button button-light" href="../../">Ver vitrine</a>
+    </header>
+
+    <main class="admin-shell">
+      <section class="login-panel">
+        <span class="section-kicker">Login</span>
+        <h1>Acesso administrativo</h1>
+        <p>Entre com o usuario e senha configurados nas variaveis de ambiente.</p>
+        <form class="login-form" data-login-form>
+          <label>Usuario
+            <input name="username" type="text" autocomplete="username" required />
+          </label>
+          <label>Senha
+            <input name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <button class="button button-primary" type="submit">Entrar</button>
+          <p class="form-message" data-login-message></p>
+        </form>
+      </section>
+    </main>
+
+    <script type="module" src="../../js/admin-login.js"></script>
+  </body>
+</html>

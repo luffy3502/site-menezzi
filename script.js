@@ -50,28 +50,38 @@ function openProduct(productId) {
 
 function renderCatalog() {
   productGrid.render(filteredProducts());
+  if (!availableProducts().length) {
+    emptyState.hidden = false;
+    emptyState.textContent = "Nenhum produto disponivel no momento.";
+  } else if (!filteredProducts().length) {
+    emptyState.hidden = false;
+    emptyState.textContent = "Nenhum produto encontrado com os filtros atuais.";
+  }
   observeRevealItems();
 }
 
 function renderOffers() {
-  offersGrid.render(availableProducts().filter((product) => product.weeklyOffer));
+  const offers = availableProducts().filter((product) => product.weeklyOffer);
+  offersGrid.render(offers);
 }
 
 function renderCategories() {
   const categories = getCategories(availableProducts());
   categoryFilter.render(categories);
-  categorySummary.innerHTML = categories
-    .map((category) => {
-      const total = availableProducts().filter((product) => product.category === category).length;
-      return `
-        <article class="category-card reveal">
-          <span class="icon icon-bag" aria-hidden="true"></span>
-          <h3>${category}</h3>
-          <p>${total} ${total === 1 ? "produto disponivel" : "produtos disponiveis"} na vitrine.</p>
-        </article>
-      `;
-    })
-    .join("");
+  categorySummary.innerHTML = categories.length
+    ? categories
+        .map((category) => {
+          const total = availableProducts().filter((product) => product.category === category).length;
+          return `
+            <article class="category-card reveal">
+              <span class="icon icon-bag" aria-hidden="true"></span>
+              <h3>${category}</h3>
+              <p>${total} ${total === 1 ? "produto disponivel" : "produtos disponiveis"} na vitrine.</p>
+            </article>
+          `;
+        })
+        .join("")
+    : `<p class="empty-state">As categorias aparecem aqui assim que houver produtos disponiveis.</p>`;
 }
 
 function setWhatsappLinks() {

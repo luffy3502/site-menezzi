@@ -1,9 +1,8 @@
 import { storeConfig } from "./config.js";
-
-const ADMIN_SESSION_KEY = "menezzi_admin_session";
+import { getAdminToken } from "./admin-session.js";
 
 function adminAuthHeaders() {
-  const token = localStorage.getItem(ADMIN_SESSION_KEY);
+  const token = getAdminToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
