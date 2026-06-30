@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "vercel dev",
-    "check": "node --check script.js && node --check js/admin.js && node --check js/admin-login.js && node --check js/admin-session.js && node --check js/products-store.js && node --check js/components/AdminProducts.js && node --check api/_utils.js && node --check api/_demo-products.js && node --check api/products.js && node --check api/product-page.js && node --check api/upload.js && node --check api/login.js && node --check api/logout.js && node --check api/me.js && node --check api/import-demo-products.js"
+    "check": "node --check script.js && node --check js/admin.js && node --check js/admin-login.js && node --check js/admin-session.js && node --check js/products-store.js && node --check js/components/AdminProducts.js && node --check api/_utils.js && node --check api/_demo-products.js && node --check api/products.js && node --check api/product-page.js && node --check api/admin-content.js && node --check api/storefront-content.js && node --check api/upload.js && node --check api/login.js && node --check api/logout.js && node --check api/me.js && node --check api/import-demo-products.js"
   },
   "dependencies": {}
 }

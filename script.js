@@ -1,4 +1,4 @@
-import { buildWhatsappUrl } from "./js/config.js";
+import { buildWhatsappUrl, storeConfig } from "./js/config.js";
 import { getCategories, loadProducts } from "./js/products-store.js";
 import { CategoryFilter } from "./js/components/CategoryFilter.js";
 import { ProductGrid } from "./js/components/ProductGrid.js";
@@ -21,6 +21,10 @@ const offersGridEl = document.querySelector("[data-offers-grid]");
 const emptyState = document.querySelector("[data-empty-state]");
 const galleryEl = document.querySelector("[data-store-gallery]");
 const galleryModal = document.querySelector("[data-gallery-modal]");
+const heroImage = document.querySelector(".hero-media img");
+const bannerTitle = document.querySelector("[data-banner-title]");
+const bannerSubtitle = document.querySelector("[data-banner-subtitle]");
+const bannerButton = document.querySelector("[data-banner-button]");
 const modal = ProductModal(document.querySelector("[data-product-modal]"));
 
 let revealObserver;
@@ -35,6 +39,38 @@ function renderSkeletons() {
   const skeleton = Array.from({ length: 6 }, () => '<article class="product-skeleton"></article>').join("");
   productGridEl.innerHTML = skeleton;
   offersGridEl.innerHTML = Array.from({ length: 3 }, () => '<article class="product-skeleton"></article>').join("");
+}
+
+async function loadStorefrontContent() {
+  const response = await fetch(storeConfig.storefrontContentApiUrl, { cache: "no-store", credentials: "same-origin" });
+  if (!response.ok) return null;
+  return response.json();
+}
+
+function applyStorefrontContent(content) {
+  if (!content) return;
+  const settings = content.settings || {};
+  if (settings.primaryColor) document.documentElement.style.setProperty("--ink", settings.primaryColor);
+  if (settings.accentColor) document.documentElement.style.setProperty("--gold", settings.accentColor);
+  if (settings.bannerImage && heroImage) heroImage.src = settings.bannerImage;
+  if (settings.bannerTitle && bannerTitle) bannerTitle.textContent = settings.bannerTitle;
+  if (settings.bannerSubtitle && bannerSubtitle) bannerSubtitle.textContent = settings.bannerSubtitle;
+  if (settings.bannerButtonText && bannerButton) bannerButton.textContent = settings.bannerButtonText;
+  if (settings.bannerButtonLink && bannerButton) bannerButton.href = settings.bannerButtonLink;
+
+  const gallery = content.gallery || [];
+  if (gallery.length && galleryEl) {
+    galleryEl.innerHTML = gallery
+      .slice(0, 6)
+      .map(
+        (item, index) => `
+          <button type="button" class="mosaic-item ${index === 0 ? "large" : ""} ${index === 3 ? "tall" : ""}" data-gallery-image="${item.image}">
+            <img src="${item.image}" alt="${item.title || "Foto da loja MENEZZI"}" loading="lazy" />
+          </button>
+        `
+      )
+      .join("");
+  }
 }
 
 function availableProducts() {
@@ -125,7 +161,9 @@ function observeRevealItems() {
 
 async function boot() {
   renderSkeletons();
+  const contentPromise = loadStorefrontContent().catch(() => null);
   state.products = await loadProducts();
+  applyStorefrontContent(await contentPromise);
   setWhatsappLinks();
   renderCategories();
   renderOffers();

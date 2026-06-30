@@ -120,6 +120,68 @@ export async function uploadProductImage(file) {
   return payload.url;
 }
 
+async function requestAdminContent(url = storeConfig.adminContentApiUrl, options = {}) {
+  const response = await fetch(url, {
+    cache: "no-store",
+    credentials: "same-origin",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...adminAuthHeaders(),
+      ...(options.headers || {}),
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw createApiError(payload, "Nao foi possivel salvar o conteudo do painel.", response.status);
+  }
+  return payload;
+}
+
+export async function loadAdminContent() {
+  return requestAdminContent();
+}
+
+export async function createCategory(name, sortOrder = 0) {
+  return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=categories`, {
+    method: "POST",
+    body: JSON.stringify({ name, sortOrder }),
+  });
+}
+
+export async function deleteCategory(categoryId) {
+  return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=categories&id=${encodeURIComponent(categoryId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function saveGalleryItem(item) {
+  return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=gallery`, {
+    method: "POST",
+    body: JSON.stringify(item),
+  });
+}
+
+export async function deleteGalleryItem(itemId) {
+  return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=gallery&id=${encodeURIComponent(itemId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function reorderGalleryItems(ids) {
+  return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=gallery&action=reorder`, {
+    method: "PATCH",
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export async function saveStoreSettings(settings) {
+  return requestAdminContent(`${storeConfig.adminContentApiUrl}?resource=settings`, {
+    method: "POST",
+    body: JSON.stringify(settings),
+  });
+}
+
 export function getCategories(products) {
   return [...new Set(products.map((product) => product.category).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, "pt-BR")

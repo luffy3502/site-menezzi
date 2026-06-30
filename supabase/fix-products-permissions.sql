@@ -85,3 +85,66 @@ on storage.objects
 for select
 to anon, authenticated
 using (bucket_id = 'products');
+
+create table if not exists public.product_categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.store_gallery (
+  id uuid primary key default gen_random_uuid(),
+  title text not null default '',
+  image_url text not null default '',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.store_settings (
+  id text primary key default 'main',
+  settings jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.product_categories enable row level security;
+alter table public.store_gallery enable row level security;
+alter table public.store_settings enable row level security;
+
+grant select on public.product_categories to anon, authenticated;
+grant select on public.store_gallery to anon, authenticated;
+grant select on public.store_settings to anon, authenticated;
+grant all privileges on public.product_categories to service_role;
+grant all privileges on public.store_gallery to service_role;
+grant all privileges on public.store_settings to service_role;
+
+drop policy if exists "Public can read product categories" on public.product_categories;
+create policy "Public can read product categories"
+on public.product_categories
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Public can read store gallery" on public.store_gallery;
+create policy "Public can read store gallery"
+on public.store_gallery
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Public can read store settings" on public.store_settings;
+create policy "Public can read store settings"
+on public.store_settings
+for select
+to anon, authenticated
+using (true);
+
+insert into public.product_categories (name, sort_order)
+values
+  ('Bolsas', 1),
+  ('Carteiras', 2),
+  ('Mochilas', 3),
+  ('Acessorios', 4),
+  ('Promocoes', 5),
+  ('Outros', 6)
+on conflict (name) do nothing;

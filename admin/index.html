@@ -8,125 +8,269 @@
     <link rel="icon" href="../assets/logo-menezzi.jpg" />
     <link rel="stylesheet" href="../styles.css" />
   </head>
-  <body class="admin-page">
-    <header class="admin-topbar">
-      <a class="brand" href="../" aria-label="Voltar para a vitrine">
-        <img src="../assets/logo-menezzi.jpg" alt="Logo MENEZZI" />
-      </a>
-      <div>
-        <strong>Painel de produtos</strong>
-        <span>Gerencie a vitrine sem editar codigo</span>
-      </div>
-      <div class="admin-topbar-actions">
-        <a class="button button-light" href="../">Ver vitrine</a>
-        <button class="button button-light" type="button" data-logout hidden>Sair</button>
-      </div>
-    </header>
+  <body class="admin-page admin-saas-page">
+    <main class="admin-app" data-admin-products hidden>
+      <aside class="admin-sidebar">
+        <a class="admin-sidebar-brand" href="../" aria-label="Voltar para a vitrine">
+          <img src="../assets/logo-menezzi.jpg" alt="Logo MENEZZI" />
+          <span>MENEZZI</span>
+        </a>
+        <nav class="admin-menu" aria-label="Menu do painel">
+          <button class="is-active" type="button" data-admin-section-button="dashboard"><span>◼</span>Dashboard</button>
+          <button type="button" data-admin-section-button="produtos"><span>▦</span>Produtos</button>
+          <button type="button" data-admin-section-button="categorias"><span>⌁</span>Categorias</button>
+          <button type="button" data-admin-section-button="ofertas"><span>★</span>Ofertas</button>
+          <button type="button" data-admin-section-button="galeria"><span>▧</span>Galeria</button>
+          <button type="button" data-admin-section-button="banner"><span>▰</span>Banner</button>
+          <button type="button" data-admin-section-button="configuracoes"><span>⚙</span>Configurações</button>
+        </nav>
+        <div class="admin-sidebar-actions">
+          <a class="button button-light" href="../">Ver vitrine</a>
+          <button class="button button-light" type="button" data-logout hidden>Sair</button>
+        </div>
+      </aside>
 
-    <main class="admin-shell">
-      <section data-admin-products hidden>
-      <section class="admin-heading">
-        <span class="section-kicker">Admin</span>
-        <h1>Produtos da vitrine</h1>
-        <p>Adicione, edite, organize por categoria e marque ofertas da semana.</p>
-      </section>
-
-      <section class="admin-layout">
-        <form class="admin-form" data-product-form>
-          <input type="hidden" name="id" />
-          <div class="form-heading">
-            <h2 data-form-title>Novo produto</h2>
-            <button class="button button-light" type="button" data-clear-form>Limpar</button>
+      <section class="admin-workspace">
+        <header class="admin-workspace-header">
+          <div>
+            <span class="section-kicker">Painel premium</span>
+            <h1>Administração da vitrine</h1>
+            <p>Gerencie produtos, conteúdo da home, galeria e dados da loja em um só lugar.</p>
           </div>
+          <button class="button button-primary" type="button" data-focus-product-form>+ Novo produto</button>
+        </header>
 
-          <label>Nome
-            <input name="name" type="text" required placeholder="Nome do produto" />
-          </label>
-          <label>Preco
-            <input name="price" type="number" min="0" step="0.01" required placeholder="0,00" />
-          </label>
-          <div class="field-group">
-            <span>Categoria</span>
-            <input type="hidden" name="category" required data-product-category />
-            <div class="choice-grid" data-category-choices></div>
-            <label class="custom-category">
-              <span>Categoria personalizada</span>
-              <input name="customCategory" type="text" placeholder="Digite outra categoria" data-custom-category />
-            </label>
+        <p class="form-message admin-global-message" data-form-message></p>
+
+        <section class="admin-section is-active" data-admin-section="dashboard">
+          <div class="dashboard-grid" data-dashboard></div>
+        </section>
+
+        <section class="admin-section" data-admin-section="produtos">
+          <section class="admin-layout">
+            <form class="admin-form admin-card" data-product-form>
+              <input type="hidden" name="id" />
+              <input type="hidden" name="image" />
+              <div class="form-heading">
+                <div>
+                  <span class="admin-card-kicker">Produto</span>
+                  <h2 data-form-title>Novo produto</h2>
+                </div>
+                <button class="button button-light icon-button-text" type="button" data-clear-form>↺ Limpar</button>
+              </div>
+
+              <fieldset class="form-section">
+                <legend>Informações principais</legend>
+                <label>Nome
+                  <input name="name" type="text" required placeholder="Nome do produto" />
+                </label>
+                <label>Preço
+                  <input name="price" type="number" min="0" step="0.01" required placeholder="0,00" />
+                </label>
+                <label>Categoria
+                  <div class="inline-control">
+                    <select name="category" required data-product-category></select>
+                    <button class="button button-light" type="button" data-open-category-modal>+ Nova categoria</button>
+                  </div>
+                </label>
+                <label>Descrição curta
+                  <textarea name="description" rows="3" required placeholder="Resumo que aparece no card"></textarea>
+                </label>
+              </fieldset>
+
+              <fieldset class="form-section">
+                <legend>Imagem</legend>
+                <label class="upload-box">
+                  <input name="imageFile" type="file" accept="image/*" data-image-file />
+                  <img class="image-preview" src="../assets/logo-menezzi.jpg" alt="Prévia da foto do produto" data-image-preview />
+                  <span>Enviar imagem do produto</span>
+                </label>
+                <p class="upload-message" data-upload-message></p>
+              </fieldset>
+
+              <fieldset class="form-section">
+                <legend>Publicação</legend>
+                <div class="field-group">
+                  <span>Disponibilidade</span>
+                  <input type="hidden" name="available" value="true" data-product-available />
+                  <div class="choice-grid two-columns" data-availability-choices></div>
+                </div>
+                <div class="field-group">
+                  <span>Oferta</span>
+                  <input type="hidden" name="offerType" value="sem_oferta" data-product-offer />
+                  <div class="choice-grid" data-offer-choices></div>
+                </div>
+              </fieldset>
+
+              <button class="button button-primary" type="submit">Salvar produto</button>
+            </form>
+
+            <section class="admin-products-panel admin-card">
+              <div class="admin-toolbar">
+                <label class="search-field">
+                  <span>Buscar produto</span>
+                  <input type="search" placeholder="Buscar produto..." data-admin-search />
+                </label>
+                <label class="search-field">
+                  <span>Categoria</span>
+                  <select data-admin-category aria-label="Filtrar categoria"></select>
+                </label>
+                <label class="search-field">
+                  <span>Disponibilidade</span>
+                  <select data-admin-availability aria-label="Filtrar disponibilidade">
+                    <option value="Todos">Todos</option>
+                    <option value="Disponivel">Disponíveis</option>
+                    <option value="Indisponivel">Indisponíveis</option>
+                  </select>
+                </label>
+                <label class="search-field">
+                  <span>Tipo de oferta</span>
+                  <select data-admin-offer aria-label="Filtrar ofertas"></select>
+                </label>
+                <label class="search-field">
+                  <span>Ordenar</span>
+                  <select data-admin-sort aria-label="Ordenar produtos">
+                    <option value="manual">Ordem manual</option>
+                    <option value="name-asc">Nome A-Z</option>
+                    <option value="name-desc">Nome Z-A</option>
+                    <option value="price-asc">Menor preço</option>
+                    <option value="price-desc">Maior preço</option>
+                  </select>
+                </label>
+                <button class="button button-light clear-filters" type="button" data-clear-filters>Limpar</button>
+              </div>
+              <div class="admin-products-list" data-admin-list></div>
+            </section>
+          </section>
+        </section>
+
+        <section class="admin-section" data-admin-section="categorias">
+          <div class="admin-card">
+            <div class="panel-heading">
+              <div>
+                <span class="admin-card-kicker">Categorias</span>
+                <h2>Categorias da vitrine</h2>
+              </div>
+              <button class="button button-primary" type="button" data-open-category-modal>+ Nova categoria</button>
+            </div>
+            <div class="category-admin-list" data-category-admin-list></div>
           </div>
-          <input type="hidden" name="image" />
-          <label>Foto do Produto
-            <input name="imageFile" type="file" accept="image/*" data-image-file />
-          </label>
-          <img class="image-preview" src="../assets/logo-menezzi.jpg" alt="Previa da foto do produto" data-image-preview />
-          <p class="upload-message" data-upload-message></p>
-          <label>Descricao curta
-            <textarea name="description" rows="3" required placeholder="Resumo que aparece no card"></textarea>
-          </label>
+        </section>
 
-          <div class="field-group">
-            <span>Disponibilidade</span>
-            <input type="hidden" name="available" value="true" data-product-available />
-            <div class="choice-grid two-columns" data-availability-choices></div>
+        <section class="admin-section" data-admin-section="ofertas">
+          <div class="admin-card">
+            <div class="panel-heading">
+              <div>
+                <span class="admin-card-kicker">Ofertas</span>
+                <h2>Produtos em destaque</h2>
+              </div>
+            </div>
+            <div class="admin-products-list" data-offers-admin-list></div>
           </div>
+        </section>
 
-          <div class="field-group">
-            <span>Oferta</span>
-            <input type="hidden" name="offerType" value="sem_oferta" data-product-offer />
-            <div class="choice-grid" data-offer-choices></div>
-          </div>
+        <section class="admin-section" data-admin-section="galeria">
+          <form class="admin-card settings-form" data-gallery-form>
+            <div class="panel-heading">
+              <div>
+                <span class="admin-card-kicker">Galeria</span>
+                <h2>Fotos da loja</h2>
+              </div>
+            </div>
+            <input type="hidden" name="image" />
+            <label>Título opcional
+              <input name="title" type="text" placeholder="Ex.: Nosso espaço" />
+            </label>
+            <label class="upload-box compact-upload">
+              <input name="imageFile" type="file" accept="image/*" data-gallery-file />
+              <img class="image-preview" src="../assets/logo-menezzi.jpg" alt="Prévia da foto da galeria" data-gallery-preview />
+              <span>Adicionar foto da loja</span>
+            </label>
+            <button class="button button-primary" type="submit">Adicionar foto</button>
+            <div class="gallery-admin-grid" data-gallery-admin-list></div>
+          </form>
+        </section>
 
-          <button class="button button-primary" type="submit">Salvar produto</button>
-          <p class="form-message" data-form-message></p>
-        </form>
+        <section class="admin-section" data-admin-section="banner">
+          <form class="admin-card settings-form" data-banner-form>
+            <div class="panel-heading">
+              <div>
+                <span class="admin-card-kicker">Banner principal</span>
+                <h2>Conteúdo do topo do site</h2>
+              </div>
+            </div>
+            <input type="hidden" name="bannerImage" />
+            <label>Imagem do banner
+              <input name="bannerFile" type="file" accept="image/*" data-banner-file />
+            </label>
+            <img class="image-preview wide-preview" src="../assets/hero-bolsa-preta.jpg" alt="Prévia do banner" data-banner-preview />
+            <label>Título
+              <input name="bannerTitle" type="text" />
+            </label>
+            <label>Subtítulo
+              <textarea name="bannerSubtitle" rows="3"></textarea>
+            </label>
+            <label>Texto do botão
+              <input name="bannerButtonText" type="text" />
+            </label>
+            <label>Link do botão
+              <input name="bannerButtonLink" type="text" placeholder="#vitrine" />
+            </label>
+            <button class="button button-primary" type="submit">Salvar banner</button>
+          </form>
+        </section>
 
-        <section class="admin-products-panel">
-          <div class="admin-toolbar">
-            <label class="search-field">
-              <span>Buscar</span>
-              <input type="search" placeholder="Buscar produto..." data-admin-search />
-            </label>
-            <label class="search-field">
-              <span>Categoria</span>
-              <select data-admin-category aria-label="Filtrar categoria"></select>
-            </label>
-            <label class="search-field">
-              <span>Disponibilidade</span>
-              <select data-admin-availability aria-label="Filtrar disponibilidade">
-                <option value="Todos">Todos</option>
-                <option value="Disponivel">Disponiveis</option>
-                <option value="Indisponivel">Indisponiveis</option>
-              </select>
-            </label>
-            <label class="search-field">
-              <span>Oferta</span>
-              <select data-admin-offer aria-label="Filtrar ofertas">
-                <option value="Todos">Todos</option>
-                <option value="Oferta">Somente ofertas</option>
-                <option value="Normal">Sem oferta</option>
-              </select>
-            </label>
-            <label class="search-field">
-              <span>Ordenar</span>
-              <select data-admin-sort aria-label="Ordenar produtos">
-                <option value="manual">Ordem manual</option>
-                <option value="name-asc">Nome A-Z</option>
-                <option value="name-desc">Nome Z-A</option>
-                <option value="price-asc">Menor preco</option>
-                <option value="price-desc">Maior preco</option>
-              </select>
-            </label>
-            <button class="button button-light clear-filters" type="button" data-clear-filters>Limpar filtros</button>
-          </div>
-          <div class="admin-products-list" data-admin-list></div>
-          <p class="admin-note">
-            As alteracoes sao salvas no Supabase e aparecem para todos os visitantes assim que a vitrine for recarregada.
-            As categorias do painel e da vitrine sao geradas a partir dos produtos cadastrados no Supabase.
-          </p>
+        <section class="admin-section" data-admin-section="configuracoes">
+          <form class="admin-card settings-form" data-settings-form>
+            <div class="panel-heading">
+              <div>
+                <span class="admin-card-kicker">Configurações</span>
+                <h2>Dados da loja</h2>
+              </div>
+            </div>
+            <div class="settings-grid">
+              <label>Nome da loja
+                <input name="storeName" type="text" />
+              </label>
+              <label>Logo
+                <input name="logo" type="text" placeholder="assets/logo-menezzi.jpg" />
+              </label>
+              <label>WhatsApp
+                <input name="whatsapp" type="text" />
+              </label>
+              <label>Instagram
+                <input name="instagram" type="url" />
+              </label>
+              <label>Endereço
+                <input name="address" type="text" />
+              </label>
+              <label>Horário de funcionamento
+                <input name="hours" type="text" />
+              </label>
+              <label>Cor principal
+                <input name="primaryColor" type="color" />
+              </label>
+              <label>Cor de destaque
+                <input name="accentColor" type="color" />
+              </label>
+            </div>
+            <button class="button button-primary" type="submit">Salvar configurações</button>
+          </form>
         </section>
       </section>
-      </section>
     </main>
+
+    <div class="modal-overlay admin-modal" data-category-modal hidden>
+      <form class="admin-dialog" data-category-form>
+        <button class="modal-close" type="button" aria-label="Fechar" data-close-category-modal>X</button>
+        <span class="admin-card-kicker">Nova categoria</span>
+        <h2>Criar categoria</h2>
+        <label>Nome da categoria
+          <input name="name" type="text" required placeholder="Ex.: Perfumes" />
+        </label>
+        <button class="button button-primary" type="submit">Salvar categoria</button>
+      </form>
+    </div>
 
     <script type="module" src="../js/admin.js"></script>
   </body>

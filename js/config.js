@@ -3,9 +3,11 @@ export const storeConfig = {
   productsApiUrl: "/api/products",
   adminProductsApiUrl: "/api/products?admin=1",
   uploadApiUrl: "/api/upload",
+  adminContentApiUrl: "/api/admin-content",
+  storefrontContentApiUrl: "/api/storefront-content",
 };
 
-export const categoryOptions = ["Bolsas", "Acessorios", "Perfumes", "Presentes", "Carteiras", "Oculos", "Outros"];
+export const categoryOptions = ["Bolsas", "Carteiras", "Mochilas", "Acessorios", "Promocoes", "Outros"];
 
 export const offerTypes = [
   { value: "sem_oferta", label: "Sem oferta" },

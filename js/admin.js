@@ -1,5 +1,5 @@
 import { clearAdminToken, adminApi } from "./admin-session.js";
-import { loadProducts } from "./products-store.js";
+import { loadAdminContent, loadProducts } from "./products-store.js";
 import { AdminProducts } from "./components/AdminProducts.js";
 
 const adminRoot = document.querySelector("[data-admin-products]");
@@ -14,8 +14,11 @@ async function showAdmin() {
   logoutButton.hidden = false;
 
   try {
-    const products = await loadProducts({ admin: true });
-    AdminProducts(adminRoot, products);
+    const [products, content] = await Promise.all([
+      loadProducts({ admin: true }),
+      loadAdminContent().catch(() => ({ categories: [], gallery: [], settings: {} })),
+    ]);
+    AdminProducts(adminRoot, products, content);
   } catch (error) {
     if (error.status === 401) {
       clearAdminToken();
