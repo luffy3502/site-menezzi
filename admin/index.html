@@ -65,13 +65,12 @@
             <input name="category" type="text" list="category-list" required placeholder="Bolsas" />
           </label>
           <datalist id="category-list" data-category-options></datalist>
-          <label>Foto
-            <input name="image" type="text" required placeholder="URL da imagem" />
-          </label>
-          <label>Upload de nova foto
+          <input type="hidden" name="image" />
+          <label>Foto do Produto
             <input name="imageFile" type="file" accept="image/*" data-image-file />
           </label>
           <img class="image-preview" src="../assets/logo-menezzi.jpg" alt="Previa da foto do produto" data-image-preview />
+          <p class="upload-message" data-upload-message></p>
           <label>Descricao curta
             <textarea name="description" rows="3" required placeholder="Resumo que aparece no card"></textarea>
           </label>
@@ -97,12 +96,41 @@
               <span>Buscar</span>
               <input type="search" placeholder="Buscar produto..." data-admin-search />
             </label>
-            <select data-admin-category aria-label="Filtrar categoria"></select>
+            <label class="search-field">
+              <span>Categoria</span>
+              <select data-admin-category aria-label="Filtrar categoria"></select>
+            </label>
+            <label class="search-field">
+              <span>Disponibilidade</span>
+              <select data-admin-availability aria-label="Filtrar disponibilidade">
+                <option value="Todos">Todos</option>
+                <option value="Disponivel">Disponiveis</option>
+                <option value="Indisponivel">Indisponiveis</option>
+              </select>
+            </label>
+            <label class="search-field">
+              <span>Oferta</span>
+              <select data-admin-offer aria-label="Filtrar ofertas">
+                <option value="Todos">Todos</option>
+                <option value="Oferta">Somente ofertas</option>
+                <option value="Normal">Sem oferta</option>
+              </select>
+            </label>
+            <label class="search-field">
+              <span>Ordenar</span>
+              <select data-admin-sort aria-label="Ordenar produtos">
+                <option value="manual">Ordem manual</option>
+                <option value="name-asc">Nome A-Z</option>
+                <option value="name-desc">Nome Z-A</option>
+                <option value="price-asc">Menor preco</option>
+                <option value="price-desc">Maior preco</option>
+              </select>
+            </label>
           </div>
           <div class="admin-products-list" data-admin-list></div>
           <p class="admin-note">
             As alteracoes sao salvas no Supabase e aparecem para todos os visitantes assim que a vitrine for recarregada.
-            O arquivo <code>data/products.json</code> fica apenas como fallback quando a API nao esta configurada.
+            Cadastre categorias livremente: elas aparecem automaticamente nos filtros da vitrine.
           </p>
         </section>
       </section>

@@ -1069,7 +1069,8 @@ noscript {
   object-fit: cover;
 }
 
-.form-message {
+.form-message,
+.upload-message {
   min-height: 22px;
   margin: 0;
   color: #12642f;
@@ -1077,8 +1078,31 @@ noscript {
   font-weight: 800;
 }
 
-.form-message.is-error {
+.form-message.is-error,
+.upload-message.is-error {
   color: #8b2d20;
+}
+
+.button.is-loading {
+  position: relative;
+  color: transparent;
+}
+
+.button.is-loading::after {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.42);
+  border-top-color: white;
+  border-radius: 50%;
+  content: "";
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .toggle-grid {
@@ -1109,6 +1133,9 @@ noscript {
 }
 
 .admin-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) repeat(4, minmax(140px, 1fr));
+  align-items: end;
   margin-bottom: 16px;
 }
 
@@ -1117,7 +1144,7 @@ noscript {
 }
 
 .admin-toolbar select {
-  max-width: 220px;
+  max-width: none;
 }
 
 .admin-products-list {
@@ -1127,13 +1154,24 @@ noscript {
 
 .admin-product {
   display: grid;
-  grid-template-columns: 86px minmax(0, 1fr) auto;
+  grid-template-columns: 86px minmax(0, 1fr) minmax(240px, 0.64fr);
   gap: 14px;
   align-items: center;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.72);
+}
+
+.admin-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.admin-actions .button {
+  min-height: 36px;
+  padding: 8px 10px;
+  font-size: 0.72rem;
 }
 
 .admin-product img {

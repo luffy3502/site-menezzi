@@ -43,11 +43,11 @@ using (is_available = true);
 -- Admin writes are performed by Vercel serverless functions using SUPABASE_SERVICE_ROLE_KEY.
 
 insert into storage.buckets (id, name, public)
-values ('product-images', 'product-images', true)
+values ('products', 'products', true)
 on conflict (id) do update set public = excluded.public;
 
-drop policy if exists "Public can read product images" on storage.objects;
-create policy "Public can read product images"
+drop policy if exists "Public can read products bucket" on storage.objects;
+create policy "Public can read products bucket"
 on storage.objects
 for select
-using (bucket_id = 'product-images');
+using (bucket_id = 'products');

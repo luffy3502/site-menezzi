@@ -25,31 +25,19 @@ function normalizeProduct(product) {
   };
 }
 
-async function loadFallbackProducts() {
-  const response = await fetch(storeConfig.productsUrl, { cache: "no-store" });
+export async function loadProducts({ admin = false } = {}) {
+  const response = await fetch(admin ? storeConfig.adminProductsApiUrl : storeConfig.productsApiUrl, {
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: admin ? adminAuthHeaders() : {},
+  });
   if (!response.ok) {
-    throw new Error("Nao foi possivel carregar os produtos locais.");
+    const payload = await response.json().catch(() => ({}));
+    const error = new Error(payload.error || "Nao foi possivel carregar os produtos do Supabase.");
+    error.status = response.status;
+    throw error;
   }
   return (await response.json()).map(normalizeProduct);
-}
-
-export async function loadProducts({ admin = false } = {}) {
-  try {
-    const response = await fetch(admin ? storeConfig.adminProductsApiUrl : storeConfig.productsApiUrl, {
-      cache: "no-store",
-      credentials: "same-origin",
-      headers: admin ? adminAuthHeaders() : {},
-    });
-    if (!response.ok) {
-      const error = new Error("API indisponivel.");
-      error.status = response.status;
-      throw error;
-    }
-    return (await response.json()).map(normalizeProduct);
-  } catch (error) {
-    if (admin) throw error;
-    return loadFallbackProducts();
-  }
 }
 
 async function requestProduct(method, product) {
