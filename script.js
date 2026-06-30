@@ -154,10 +154,18 @@ window.addEventListener("products:updated", (event) => {
   renderCatalog();
 });
 
-boot().catch(() => {
+boot().catch((error) => {
+  setWhatsappLinks();
+  categoryFilter.render([]);
+  categorySummary.innerHTML = `<p class="empty-state">As categorias aparecem aqui quando os produtos forem carregados do Supabase.</p>`;
+  offersGrid.render([]);
   productGridEl.innerHTML = "";
   emptyState.hidden = false;
-  emptyState.textContent = "Nao foi possivel carregar os produtos.";
+  emptyState.textContent =
+    error.status === 503
+      ? "Supabase ainda nao esta configurado. Verifique as variaveis de ambiente na Vercel."
+      : "Nao foi possivel carregar os produtos do Supabase agora.";
+  observeRevealItems();
 });
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {

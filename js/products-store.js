@@ -34,6 +34,7 @@ export async function loadProducts({ admin = false } = {}) {
     const payload = await response.json().catch(() => ({}));
     const error = new Error(payload.error || "Nao foi possivel carregar os produtos do Supabase.");
     error.status = response.status;
+    error.details = payload;
     throw error;
   }
   return (await response.json()).map(normalizeProduct);

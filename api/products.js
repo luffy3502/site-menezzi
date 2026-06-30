@@ -1,22 +1,51 @@
 const {
+  isSupabaseConfigured,
   productFromDb,
   productToDb,
   readJson,
   requireAdmin,
+  requirePublicSupabase,
   requireSupabase,
   sendJson,
+  supabasePublicRest,
   supabaseRest,
 } = require("./_utils");
+const { demoProducts } = require("./_demo-products");
+
+async function seedDemoProductsIfEmpty() {
+  if (!isSupabaseConfigured()) return [];
+
+  const existingRows = await supabaseRest("products?select=id&limit=1");
+  if (existingRows.length) return [];
+
+  const inserted = [];
+  for (const product of demoProducts) {
+    const rows = await supabaseRest("products", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(product),
+    });
+    inserted.push(productFromDb(rows[0]));
+  }
+
+  return inserted;
+}
 
 async function listProducts(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const isAdmin = url.searchParams.get("admin") === "1";
 
-  if (isAdmin && !requireAdmin(req, res)) return;
-  if (!requireSupabase(res)) return;
+  if (isAdmin) {
+    if (!requireAdmin(req, res) || !requireSupabase(res)) return;
+    const rows = await supabaseRest("products?select=*&order=sort_order.asc,created_at.desc");
+    return sendJson(res, 200, rows.map(productFromDb));
+  }
 
-  const filters = isAdmin ? "" : "&is_available=eq.true";
-  const rows = await supabaseRest(`products?select=*&order=sort_order.asc,created_at.desc${filters}`);
+  if (!requirePublicSupabase(res)) return;
+
+  await seedDemoProductsIfEmpty().catch(() => []);
+
+  const rows = await supabasePublicRest("products?select=*&is_available=eq.true&order=sort_order.asc,created_at.desc");
   return sendJson(res, 200, rows.map(productFromDb));
 }
 

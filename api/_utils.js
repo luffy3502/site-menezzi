@@ -16,9 +16,19 @@ function isSupabaseConfigured() {
   return Boolean(supabaseConfig.url && supabaseConfig.serviceRoleKey);
 }
 
+function isPublicSupabaseConfigured() {
+  return Boolean(supabaseConfig.url && (supabaseConfig.anonKey || supabaseConfig.serviceRoleKey));
+}
+
 function requireSupabase(res) {
   if (isSupabaseConfigured()) return true;
   sendJson(res, 503, { error: "Supabase nao configurado." });
+  return false;
+}
+
+function requirePublicSupabase(res) {
+  if (isPublicSupabaseConfigured()) return true;
+  sendJson(res, 503, { error: "Supabase publico nao configurado." });
   return false;
 }
 
@@ -138,6 +148,28 @@ async function supabaseRest(path, options = {}) {
   return payload;
 }
 
+async function supabasePublicRest(path, options = {}) {
+  const key = supabaseConfig.anonKey || supabaseConfig.serviceRoleKey;
+  const url = `${supabaseConfig.url}/rest/v1/${path}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    const message = payload?.message || payload?.error || "Erro no Supabase.";
+    throw new Error(message);
+  }
+  return payload;
+}
+
 function productFromDb(product) {
   return {
     id: product.id,
@@ -174,12 +206,15 @@ module.exports = {
   createSessionToken,
   getSession,
   isSupabaseConfigured,
+  isPublicSupabaseConfigured,
   productFromDb,
   productToDb,
   readJson,
   requireAdmin,
+  requirePublicSupabase,
   requireSupabase,
   sendJson,
   supabaseConfig,
+  supabasePublicRest,
   supabaseRest,
 };
