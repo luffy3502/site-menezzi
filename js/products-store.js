@@ -1,5 +1,12 @@
 import { storeConfig } from "./config.js";
 
+const ADMIN_SESSION_KEY = "menezzi_admin_session";
+
+function adminAuthHeaders() {
+  const token = localStorage.getItem(ADMIN_SESSION_KEY);
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 function normalizeProduct(product) {
   return {
     id: product.id || crypto.randomUUID(),
@@ -31,8 +38,13 @@ export async function loadProducts({ admin = false } = {}) {
     const response = await fetch(admin ? storeConfig.adminProductsApiUrl : storeConfig.productsApiUrl, {
       cache: "no-store",
       credentials: "same-origin",
+      headers: admin ? adminAuthHeaders() : {},
     });
-    if (!response.ok) throw new Error("API indisponivel.");
+    if (!response.ok) {
+      const error = new Error("API indisponivel.");
+      error.status = response.status;
+      throw error;
+    }
     return (await response.json()).map(normalizeProduct);
   } catch (error) {
     if (admin) throw error;
@@ -44,11 +56,15 @@ async function requestProduct(method, product) {
   const response = await fetch(storeConfig.productsApiUrl, {
     method,
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...adminAuthHeaders() },
     body: JSON.stringify(product),
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "Nao foi possivel salvar o produto.");
+  if (!response.ok) {
+    const error = new Error(payload.error || "Nao foi possivel salvar o produto.");
+    error.status = response.status;
+    throw error;
+  }
   return normalizeProduct(payload);
 }
 
@@ -64,9 +80,14 @@ export async function deleteProduct(productId) {
   const response = await fetch(`${storeConfig.productsApiUrl}?id=${encodeURIComponent(productId)}`, {
     method: "DELETE",
     credentials: "same-origin",
+    headers: adminAuthHeaders(),
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "Nao foi possivel excluir o produto.");
+  if (!response.ok) {
+    const error = new Error(payload.error || "Nao foi possivel excluir o produto.");
+    error.status = response.status;
+    throw error;
+  }
   return payload;
 }
 
@@ -74,11 +95,15 @@ export async function reorderProducts(ids) {
   const response = await fetch(`${storeConfig.productsApiUrl}?action=reorder`, {
     method: "PATCH",
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...adminAuthHeaders() },
     body: JSON.stringify({ ids }),
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "Nao foi possivel reordenar os produtos.");
+  if (!response.ok) {
+    const error = new Error(payload.error || "Nao foi possivel reordenar os produtos.");
+    error.status = response.status;
+    throw error;
+  }
   return payload.map(normalizeProduct);
 }
 
@@ -93,7 +118,7 @@ export async function uploadProductImage(file) {
   const response = await fetch(storeConfig.uploadApiUrl, {
     method: "POST",
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...adminAuthHeaders() },
     body: JSON.stringify({
       fileName: file.name,
       contentType: file.type,
@@ -101,7 +126,11 @@ export async function uploadProductImage(file) {
     }),
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "Nao foi possivel enviar a imagem.");
+  if (!response.ok) {
+    const error = new Error(payload.error || "Nao foi possivel enviar a imagem.");
+    error.status = response.status;
+    throw error;
+  }
   return payload.url;
 }
 

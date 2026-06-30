@@ -72,6 +72,13 @@ function signToken(payload) {
   return `${encodedPayload}.${signature}`;
 }
 
+function createSessionToken(username) {
+  return signToken({
+    username,
+    exp: Date.now() + SESSION_MAX_AGE_SECONDS * 1000,
+  });
+}
+
 function verifyToken(token) {
   try {
     if (!token || !token.includes(".")) return null;
@@ -87,11 +94,8 @@ function verifyToken(token) {
   }
 }
 
-function createSessionCookie(username) {
-  const token = signToken({
-    username,
-    exp: Date.now() + SESSION_MAX_AGE_SECONDS * 1000,
-  });
+function createSessionCookie(username, sessionToken = createSessionToken(username)) {
+  const token = sessionToken;
   return `${SESSION_COOKIE}=${encodeURIComponent(token)}; ${cookieOptions()}`;
 }
 
@@ -101,7 +105,9 @@ function clearSessionCookie() {
 
 function getSession(req) {
   const cookies = parseCookies(req);
-  return verifyToken(cookies[SESSION_COOKIE]);
+  const authHeader = String(req.headers.authorization || "");
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  return verifyToken(bearerToken) || verifyToken(cookies[SESSION_COOKIE]);
 }
 
 function requireAdmin(req, res) {
@@ -165,6 +171,7 @@ function productToDb(product) {
 module.exports = {
   clearSessionCookie,
   createSessionCookie,
+  createSessionToken,
   getSession,
   isSupabaseConfigured,
   productFromDb,

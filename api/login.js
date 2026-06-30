@@ -1,4 +1,4 @@
-const { createSessionCookie, readJson, sendJson } = require("./_utils");
+const { createSessionCookie, createSessionToken, readJson, sendJson } = require("./_utils");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
@@ -18,7 +18,8 @@ module.exports = async function handler(req, res) {
       return sendJson(res, 401, { error: "Usuario ou senha invalidos." });
     }
 
-    return sendJson(res, 200, { ok: true }, { "Set-Cookie": createSessionCookie(username) });
+    const token = createSessionToken(username);
+    return sendJson(res, 200, { ok: true, token }, { "Set-Cookie": createSessionCookie(username, token) });
   } catch (error) {
     return sendJson(res, 400, { error: error.message });
   }
