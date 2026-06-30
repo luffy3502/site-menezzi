@@ -221,14 +221,27 @@ async function supabasePublicRest(path, options = {}) {
 
 function productFromDb(product) {
   const offerType = product.offer_type || (product.is_offer ? "oferta_semana" : "sem_oferta");
+  const primaryImage = product.image_url || "assets/logo-menezzi.jpg";
+  const images = Array.isArray(product.images)
+    ? product.images
+    : [
+        {
+          id: `${product.id || "product"}-primary`,
+          image: primaryImage,
+          imageUrl: primaryImage,
+          sortOrder: 1,
+          primary: true,
+        },
+      ];
   return {
     id: product.id,
     name: product.name,
     price: Number(product.price || 0),
     description: product.description || "",
     category: product.category || "Sem categoria",
-    image: product.image_url || "assets/logo-menezzi.jpg",
-    imageUrl: product.image_url || "assets/logo-menezzi.jpg",
+    image: primaryImage,
+    imageUrl: primaryImage,
+    images,
     offerType,
     weeklyOffer: offerType !== "sem_oferta",
     available: Boolean(product.is_available),

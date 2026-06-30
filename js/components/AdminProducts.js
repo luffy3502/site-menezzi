@@ -69,7 +69,9 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
   const offerInput = root.querySelector("[data-product-offer]");
   const clearFiltersButton = root.querySelector("[data-clear-filters]");
   const imageFile = root.querySelector("[data-image-file]");
+  const extraImageFiles = root.querySelector("[data-product-extra-files]");
   const imagePreview = root.querySelector("[data-image-preview]");
+  const productImagesAdmin = root.querySelector("[data-product-images-admin]");
   const submitButton = form.querySelector('button[type="submit"]');
   const categoryModal = root.ownerDocument.querySelector("[data-category-modal]");
   const categoryForm = root.ownerDocument.querySelector("[data-category-form]");
@@ -101,6 +103,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
   let testimonials = initialContent.testimonials || [];
   let instagram = initialContent.instagram || [];
   let settings = initialContent.settings || {};
+  let productExtraImages = [];
   let saving = false;
   let uploading = false;
 
@@ -143,6 +146,68 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     return normalizeCategory(productCategorySelect.value) || DEFAULT_CATEGORIES[0];
   }
 
+  function normalizeProductImages(product) {
+    const mainImage = product?.image || product?.imageUrl || "";
+    const images = Array.isArray(product?.images) ? product.images : [];
+    const seen = new Set([mainImage].filter(Boolean));
+    return images.reduce((list, item, index) => {
+      const normalized = {
+        id: item.id || `${product?.id || "new"}-extra-${index}`,
+        image: item.image || item.imageUrl || "",
+        imageUrl: item.imageUrl || item.image || "",
+        sortOrder: Number(item.sortOrder || index + 1),
+        primary: Boolean(item.primary),
+      };
+      if (!normalized.image || normalized.primary || seen.has(normalized.image)) return list;
+      seen.add(normalized.image);
+      return [...list, normalized];
+    }, []);
+  }
+
+  function allProductImages() {
+    const mainImage = form.elements.image.value;
+    const images = [];
+    if (mainImage) {
+      images.push({
+        id: "current-primary",
+        image: mainImage,
+        imageUrl: mainImage,
+        sortOrder: 1,
+        primary: true,
+      });
+    }
+    productExtraImages.forEach((item, index) => {
+      if (!item.image || item.image === mainImage) return;
+      images.push({
+        ...item,
+        sortOrder: index + 2,
+        primary: false,
+      });
+    });
+    return images;
+  }
+
+  function renderProductImagesAdmin() {
+    if (!productImagesAdmin) return;
+    productImagesAdmin.innerHTML = productExtraImages.length
+      ? productExtraImages
+          .map(
+            (item, index) => `
+              <article class="product-extra-image" draggable="true" data-product-extra-image="${item.image}">
+                <img src="${adminImageSrc(item.image)}" alt="Foto adicional do produto" />
+                <div class="admin-actions">
+                  <button class="button button-light" type="button" data-product-extra-primary="${item.image}">Usar como principal</button>
+                  <button class="button button-light" type="button" data-product-extra-move="${item.image}" data-direction="-1" ${index === 0 ? "disabled" : ""}>Subir</button>
+                  <button class="button button-light" type="button" data-product-extra-move="${item.image}" data-direction="1" ${index === productExtraImages.length - 1 ? "disabled" : ""}>Descer</button>
+                  <button class="button danger-button" type="button" data-product-extra-remove="${item.image}">Remover</button>
+                </div>
+              </article>
+            `
+          )
+          .join("")
+      : '<p class="admin-note">Fotos adicionais sao opcionais.</p>';
+  }
+
   function formDataToProduct() {
     const data = new FormData(form);
     const id = data.get("id");
@@ -157,6 +222,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
       category: selectedCategory(),
       image,
       imageUrl: image,
+      images: allProductImages(),
       description: data.get("description").trim(),
       offerType,
       weeklyOffer: offerType !== "sem_oferta",
@@ -203,6 +269,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     form.elements.image.value = "";
     availableInput.value = "true";
     offerInput.value = "sem_oferta";
+    productExtraImages = [];
     productCategorySelect.value = categoryChoices()[0] || DEFAULT_CATEGORIES[0];
     imagePreview.src = FALLBACK_IMAGE;
     formTitle.textContent = "Novo produto";
@@ -210,6 +277,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     renderChoiceButtons();
     setMessage("");
     setUploadMessage("");
+    renderProductImagesAdmin();
   }
 
   function editProduct(productId) {
@@ -225,12 +293,14 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     productCategorySelect.value = choices.includes(product.category) ? product.category : choices[0];
     availableInput.value = String(Boolean(product.available));
     offerInput.value = getOfferType(product);
+    productExtraImages = normalizeProductImages(product);
     imagePreview.src = adminImageSrc(product.image);
     formTitle.textContent = "Editar produto";
     renderChoiceButtons();
     showSection("produtos");
     setMessage("Produto carregado para edicao.");
     setUploadMessage("");
+    renderProductImagesAdmin();
     form.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -628,6 +698,9 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     const clearGalleryButton = event.target.closest("[data-clear-gallery-form]");
     const clearTestimonialButton = event.target.closest("[data-clear-testimonial-form]");
     const clearInstagramButton = event.target.closest("[data-clear-instagram-form]");
+    const productExtraPrimary = event.target.closest("[data-product-extra-primary]");
+    const productExtraRemove = event.target.closest("[data-product-extra-remove]");
+    const productExtraMove = event.target.closest("[data-product-extra-move]");
     const focusProduct = event.target.closest("[data-focus-product-form]");
     const available = event.target.closest("[data-set-available]");
     const offer = event.target.closest("[data-set-offer]");
@@ -651,6 +724,29 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
       if (clearGalleryButton) clearGalleryForm();
       if (clearTestimonialButton) clearTestimonialForm();
       if (clearInstagramButton) clearInstagramForm();
+      if (productExtraPrimary) {
+        const image = productExtraPrimary.dataset.productExtraPrimary;
+        const oldMain = form.elements.image.value;
+        productExtraImages = productExtraImages.filter((item) => item.image !== image);
+        if (oldMain) productExtraImages = [{ id: `extra-${Date.now()}`, image: oldMain, imageUrl: oldMain }, ...productExtraImages];
+        form.elements.image.value = image;
+        imagePreview.src = adminImageSrc(image);
+        renderProductImagesAdmin();
+      }
+      if (productExtraRemove) {
+        productExtraImages = productExtraImages.filter((item) => item.image !== productExtraRemove.dataset.productExtraRemove);
+        renderProductImagesAdmin();
+      }
+      if (productExtraMove) {
+        const index = productExtraImages.findIndex((item) => item.image === productExtraMove.dataset.productExtraMove);
+        const targetIndex = index + Number(productExtraMove.dataset.direction);
+        if (index >= 0 && targetIndex >= 0 && targetIndex < productExtraImages.length) {
+          const next = [...productExtraImages];
+          [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+          productExtraImages = next;
+          renderProductImagesAdmin();
+        }
+      }
       if (available) {
         availableInput.value = available.dataset.setAvailable;
         renderChoiceButtons();
@@ -845,6 +941,36 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     }
   });
 
+  extraImageFiles.addEventListener("change", async () => {
+    const files = [...extraImageFiles.files];
+    if (!files.length) return;
+    uploading = true;
+    submitButton.disabled = true;
+    setUploadMessage("Enviando fotos adicionais...");
+    try {
+      for (const file of files) {
+        const previewUrl = URL.createObjectURL(file);
+        productExtraImages = [...productExtraImages, { id: `pending-${Date.now()}-${file.name}`, image: previewUrl, imageUrl: previewUrl }];
+        renderProductImagesAdmin();
+        const url = await uploadProductImage(file);
+        productExtraImages = productExtraImages.map((item) =>
+          item.image === previewUrl ? { id: `extra-${Date.now()}-${file.name}`, image: url, imageUrl: url } : item
+        );
+      }
+      extraImageFiles.value = "";
+      renderProductImagesAdmin();
+      setUploadMessage("Fotos adicionais enviadas.");
+    } catch (error) {
+      console.error("Erro completo ao enviar fotos adicionais:", error);
+      setUploadMessage("Erro ao enviar fotos adicionais.", true);
+      productExtraImages = productExtraImages.filter((item) => !item.image.startsWith("blob:"));
+      renderProductImagesAdmin();
+    } finally {
+      uploading = false;
+      submitButton.disabled = saving;
+    }
+  });
+
   galleryFile.addEventListener("change", async () => {
     const file = galleryFile.files[0];
     if (!file) return;
@@ -1026,6 +1152,32 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     next.splice(to, 0, item);
     instagram = await reorderInstagramItems(next.map((entry) => entry.id));
     render();
+  });
+
+  let draggedProductImage = "";
+  productImagesAdmin.addEventListener("dragstart", (event) => {
+    const card = event.target.closest("[data-product-extra-image]");
+    if (!card) return;
+    draggedProductImage = card.dataset.productExtraImage;
+    event.dataTransfer.effectAllowed = "move";
+  });
+  productImagesAdmin.addEventListener("dragover", (event) => {
+    if (event.target.closest("[data-product-extra-image]")) event.preventDefault();
+  });
+  productImagesAdmin.addEventListener("drop", (event) => {
+    const card = event.target.closest("[data-product-extra-image]");
+    const targetImage = card?.dataset.productExtraImage;
+    if (!draggedProductImage || !targetImage || draggedProductImage === targetImage) return;
+    event.preventDefault();
+    const next = [...productExtraImages];
+    const from = next.findIndex((item) => item.image === draggedProductImage);
+    const to = next.findIndex((item) => item.image === targetImage);
+    if (from < 0 || to < 0) return;
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    productExtraImages = next;
+    draggedProductImage = "";
+    renderProductImagesAdmin();
   });
 
   render();

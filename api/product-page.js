@@ -46,6 +46,11 @@ function imageUrl(req, image) {
   return absoluteUrl(req, `/${String(image || "assets/logo-menezzi.jpg").replace(/^\/+/, "")}`);
 }
 
+function isMissingProductImagesTable(error) {
+  const message = `${error.message || ""} ${error.supabase?.message || ""} ${error.supabase?.details || ""}`;
+  return /product_images/i.test(message) && /relation|schema cache|does not exist|could not find/i.test(message);
+}
+
 function productPath(product) {
   return `/produto/${product.id}-${slugify(product.name)}`;
 }
@@ -151,7 +156,9 @@ function renderError(req) {
 function renderProduct(req, product, related) {
   const url = absoluteUrl(req, productPath(product));
   const image = imageUrl(req, product.image);
-  const images = [image];
+  const images = (Array.isArray(product.images) && product.images.length ? product.images : [{ image }]).map((item) =>
+    imageUrl(req, item.image || item.imageUrl || image)
+  );
   const offerLabel = OFFER_LABELS[product.offerType] || "Oferta";
   const description = product.description || "Produto selecionado da MENEZZI.";
   const relatedCards = related
@@ -185,9 +192,17 @@ function renderProduct(req, product, related) {
     <main class="product-detail-shell">
       <article class="product-detail">
         <div class="product-detail-media">
-          <img src="${escapeHtml(image)}" alt="${escapeHtml(product.name)}" />
+          <img src="${escapeHtml(images[0])}" alt="${escapeHtml(product.name)}" data-product-main-image />
           <div class="product-detail-thumbs">
-            ${images.map((item) => `<img src="${escapeHtml(item)}" alt="${escapeHtml(product.name)}" loading="lazy" />`).join("")}
+            ${images
+              .map(
+                (item, index) => `
+                  <button class="${index === 0 ? "is-active" : ""}" type="button" data-product-thumb="${escapeHtml(item)}" aria-label="Ver foto ${index + 1}">
+                    <img src="${escapeHtml(item)}" alt="${escapeHtml(product.name)}" loading="lazy" />
+                  </button>
+                `
+              )
+              .join("")}
           </div>
         </div>
         <div class="product-detail-info">
@@ -232,6 +247,13 @@ function renderProduct(req, product, related) {
         await navigator.clipboard?.writeText(${JSON.stringify(url)});
         event.currentTarget.textContent = "Link copiado";
       });
+      document.querySelectorAll("[data-product-thumb]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const main = document.querySelector("[data-product-main-image]");
+          if (main) main.src = button.dataset.productThumb;
+          document.querySelectorAll("[data-product-thumb]").forEach((item) => item.classList.toggle("is-active", item === button));
+        });
+      });
     </script>
   </body>
 </html>`;
@@ -250,6 +272,28 @@ async function findProductByKey(key) {
   return rows.map(productFromDb).find((item) => slugify(item.name) === cleanKey || `${item.id}-${slugify(item.name)}` === cleanKey);
 }
 
+async function attachProductImages(product) {
+  if (!product?.id) return product;
+  try {
+    const rows = await supabaseRest(
+      `product_images?select=*&product_id=eq.${encodeURIComponent(product.id)}&order=sort_order.asc,created_at.asc`
+    );
+    if (!rows.length) return product;
+    const images = rows.map((row) => ({
+      id: row.id,
+      image: row.image_url,
+      imageUrl: row.image_url,
+      sortOrder: Number(row.sort_order || 0),
+      primary: row.is_primary ?? false,
+    }));
+    const primary = images.find((item) => item.primary) || images[0];
+    return { ...product, image: primary?.image || product.image, imageUrl: primary?.image || product.image, images };
+  } catch (error) {
+    if (isMissingProductImagesTable(error)) return product;
+    throw error;
+  }
+}
+
 module.exports = async function handler(req, res) {
   try {
     if (!isSupabaseConfigured()) {
@@ -260,7 +304,7 @@ module.exports = async function handler(req, res) {
     }
     const url = new URL(req.url, `http://${req.headers.host}`);
     const key = url.searchParams.get("slug") || url.searchParams.get("id") || "";
-    const product = await findProductByKey(key);
+    let product = await findProductByKey(key);
 
     if (!product) {
       const page = renderNotFound(req);
@@ -268,6 +312,7 @@ module.exports = async function handler(req, res) {
       res.end(page.html);
       return;
     }
+    product = await attachProductImages(product);
 
     const relatedRows = await supabaseRest(
       `products?select=*&is_available=eq.true&category=eq.${encodeURIComponent(product.category)}&id=neq.${encodeURIComponent(product.id)}&order=sort_order.asc,created_at.desc&limit=4`

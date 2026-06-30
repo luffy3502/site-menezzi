@@ -15,6 +15,24 @@ function createApiError(payload, fallbackMessage, status) {
 
 function normalizeProduct(product) {
   const offerType = product.offerType || product.offer_type || (product.weeklyOffer ?? product.is_offer ? "oferta_semana" : "sem_oferta");
+  const primaryImage = product.image || product.imageUrl || product.image_url || "assets/logo-menezzi.jpg";
+  const images = Array.isArray(product.images) && product.images.length
+    ? product.images.map((image, index) => ({
+        id: image.id || `${product.id || "product"}-image-${index}`,
+        image: image.image || image.imageUrl || image.image_url || primaryImage,
+        imageUrl: image.imageUrl || image.image || image.image_url || primaryImage,
+        sortOrder: Number(image.sortOrder ?? image.sort_order ?? index + 1),
+        primary: image.primary ?? image.isPrimary ?? image.is_primary ?? index === 0,
+      }))
+    : [
+        {
+          id: `${product.id || "product"}-primary`,
+          image: primaryImage,
+          imageUrl: primaryImage,
+          sortOrder: 1,
+          primary: true,
+        },
+      ];
   return {
     id: product.id || crypto.randomUUID(),
     name: product.name || "Novo produto",
@@ -22,8 +40,9 @@ function normalizeProduct(product) {
     description: product.description || "",
     details: product.details || product.description || "",
     price: Number(product.price || 0),
-    image: product.image || product.imageUrl || product.image_url || "assets/logo-menezzi.jpg",
-    imageUrl: product.imageUrl || product.image || product.image_url || "assets/logo-menezzi.jpg",
+    image: primaryImage,
+    imageUrl: primaryImage,
+    images,
     offerType,
     weeklyOffer: getOfferType({ offerType }) !== "sem_oferta",
     available: product.available ?? product.is_available ?? true,

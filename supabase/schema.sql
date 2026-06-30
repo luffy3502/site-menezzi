@@ -25,6 +25,28 @@ where offer_type is null or offer_type = '';
 create index if not exists products_available_sort_idx
   on public.products (is_available, sort_order, created_at);
 
+create table if not exists public.product_images (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  image_url text not null default '',
+  sort_order integer not null default 0,
+  is_primary boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists product_images_product_sort_idx
+  on public.product_images (product_id, sort_order, created_at);
+
+insert into public.product_images (product_id, image_url, sort_order, is_primary)
+select p.id, p.image_url, 1, true
+from public.products p
+where p.image_url <> ''
+  and not exists (
+    select 1
+    from public.product_images pi
+    where pi.product_id = p.id
+  );
+
 create or replace function public.set_products_updated_at()
 returns trigger as $$
 begin
@@ -41,12 +63,19 @@ for each row
 execute function public.set_products_updated_at();
 
 alter table public.products enable row level security;
+alter table public.product_images enable row level security;
 
 drop policy if exists "Public can read available products" on public.products;
 create policy "Public can read available products"
 on public.products
 for select
 using (is_available = true);
+
+drop policy if exists "Public can read product images" on public.product_images;
+create policy "Public can read product images"
+on public.product_images
+for select
+using (true);
 
 -- Admin writes are performed by Vercel serverless functions using SUPABASE_SERVICE_ROLE_KEY.
 

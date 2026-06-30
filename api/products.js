@@ -25,6 +25,91 @@ function isMissingOfferTypeColumn(error) {
   return /offer_type/i.test(message) && /column|schema|could not find/i.test(message);
 }
 
+function isMissingProductImagesTable(error) {
+  const message = `${error.message || ""} ${error.supabase?.message || ""} ${error.supabase?.details || ""}`;
+  return /product_images/i.test(message) && /relation|schema cache|does not exist|could not find/i.test(message);
+}
+
+function normalizeProductImage(row) {
+  return {
+    id: row.id,
+    productId: row.product_id,
+    image: row.image_url || "",
+    imageUrl: row.image_url || "",
+    sortOrder: Number(row.sort_order || 0),
+    primary: row.is_primary ?? false,
+    createdAt: row.created_at || null,
+  };
+}
+
+function normalizeIncomingImages(product, savedProductId) {
+  const sourceImages = Array.isArray(product.images) ? product.images : [];
+  const mainImage = String(product.image || product.imageUrl || product.image_url || "").trim();
+  const seen = new Set();
+  const normalized = [];
+
+  function addImage(item, index, forcePrimary = false) {
+    const image = String(item?.image || item?.imageUrl || item?.image_url || item || "").trim();
+    if (!image || seen.has(image)) return;
+    seen.add(image);
+    normalized.push({
+      id: item?.id && !String(item.id).endsWith("-primary") ? item.id : undefined,
+      product_id: savedProductId,
+      image_url: image,
+      sort_order: Number(item?.sortOrder ?? item?.sort_order ?? index + 1),
+      is_primary: forcePrimary || Boolean(item?.primary ?? item?.isPrimary ?? item?.is_primary),
+    });
+  }
+
+  if (mainImage) addImage({ image: mainImage, sortOrder: 1, primary: true }, 0, true);
+  sourceImages.forEach((item, index) => addImage(item, index + 1));
+  if (normalized.length && !normalized.some((item) => item.is_primary)) normalized[0].is_primary = true;
+  return normalized.map((item, index) => ({ ...item, sort_order: index + 1, is_primary: index === 0 ? true : item.is_primary && !normalized.slice(0, index).some((prior) => prior.is_primary) }));
+}
+
+async function attachProductImages(rows) {
+  if (!rows.length) return rows.map(productFromDb);
+  const ids = rows.map((row) => row.id).filter(Boolean);
+  let imageRows = [];
+  try {
+    imageRows = await supabaseRest(`product_images?select=*&product_id=in.(${ids.join(",")})&order=sort_order.asc,created_at.asc`);
+  } catch (error) {
+    if (!isMissingProductImagesTable(error)) throw error;
+    imageRows = [];
+  }
+
+  const byProduct = imageRows.reduce((map, row) => {
+    const list = map.get(row.product_id) || [];
+    list.push(normalizeProductImage(row));
+    map.set(row.product_id, list);
+    return map;
+  }, new Map());
+
+  return rows.map((row) => {
+    const images = byProduct.get(row.id) || [];
+    const primary = images.find((image) => image.primary) || images[0];
+    const image_url = primary?.image || row.image_url;
+    return productFromDb({ ...row, image_url, images: images.length ? images : undefined });
+  });
+}
+
+async function saveProductImages(productId, product) {
+  const images = normalizeIncomingImages(product, productId);
+  try {
+    await supabaseRest(`product_images?product_id=eq.${encodeURIComponent(productId)}`, { method: "DELETE" });
+    if (!images.length) return [];
+    const rows = await supabaseRest("product_images", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(images),
+    });
+    return rows.map(normalizeProductImage);
+  } catch (error) {
+    if (isMissingProductImagesTable(error)) return [];
+    throw error;
+  }
+}
+
 async function seedDemoProductsIfEmpty() {
   if (!isSupabaseConfigured()) return [];
 
@@ -51,7 +136,7 @@ async function listProducts(req, res) {
   if (isAdmin) {
     if (!requireAdmin(req, res) || !requireSupabase(res)) return;
     const rows = await supabaseRest("products?select=*&order=sort_order.asc,created_at.desc");
-    return sendJson(res, 200, rows.map(productFromDb));
+    return sendJson(res, 200, await attachProductImages(rows));
   }
 
   if (!requireSupabase(res)) return;
@@ -59,7 +144,7 @@ async function listProducts(req, res) {
   await seedDemoProductsIfEmpty().catch(() => []);
 
   const rows = await supabaseRest("products?select=*&is_available=eq.true&order=sort_order.asc,created_at.desc");
-  return sendJson(res, 200, rows.map(productFromDb));
+  return sendJson(res, 200, await attachProductImages(rows));
 }
 
 async function createProduct(req, res) {
@@ -80,7 +165,9 @@ async function createProduct(req, res) {
       body: JSON.stringify(productToDb(body, { includeOfferType: false })),
     });
   }
-  return sendJson(res, 201, productFromDb(rows[0]));
+  const images = await saveProductImages(rows[0].id, body);
+  const primary = images.find((image) => image.primary) || images[0];
+  return sendJson(res, 201, productFromDb({ ...rows[0], image_url: primary?.image || rows[0].image_url, images: images.length ? images : undefined }));
 }
 
 async function updateProduct(req, res) {
@@ -103,7 +190,9 @@ async function updateProduct(req, res) {
       body: JSON.stringify(productToDb(body, { includeOfferType: false })),
     });
   }
-  return sendJson(res, 200, productFromDb(rows[0]));
+  const images = await saveProductImages(rows[0].id, body);
+  const primary = images.find((image) => image.primary) || images[0];
+  return sendJson(res, 200, productFromDb({ ...rows[0], image_url: primary?.image || rows[0].image_url, images: images.length ? images : undefined }));
 }
 
 async function deleteProduct(req, res) {
@@ -111,6 +200,9 @@ async function deleteProduct(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const id = url.searchParams.get("id");
   if (!id) return sendJson(res, 400, { error: "ID obrigatorio." });
+  await supabaseRest(`product_images?product_id=eq.${encodeURIComponent(id)}`, { method: "DELETE" }).catch((error) => {
+    if (!isMissingProductImagesTable(error)) throw error;
+  });
   await supabaseRest(`products?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
   return sendJson(res, 200, { ok: true });
 }
@@ -130,7 +222,7 @@ async function reorderProducts(req, res) {
   );
 
   const rows = await supabaseRest("products?select=*&order=sort_order.asc,created_at.desc");
-  return sendJson(res, 200, rows.map(productFromDb));
+  return sendJson(res, 200, await attachProductImages(rows));
 }
 
 module.exports = async function handler(req, res) {
