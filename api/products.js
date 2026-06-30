@@ -20,6 +20,11 @@ function supabaseErrorPayload(error) {
   };
 }
 
+function isMissingOfferTypeColumn(error) {
+  const message = `${error.message || ""} ${error.supabase?.message || ""} ${error.supabase?.details || ""}`;
+  return /offer_type/i.test(message) && /column|schema|could not find/i.test(message);
+}
+
 async function seedDemoProductsIfEmpty() {
   if (!isSupabaseConfigured()) return [];
 
@@ -59,12 +64,22 @@ async function listProducts(req, res) {
 
 async function createProduct(req, res) {
   if (!requireAdmin(req, res) || !requireSupabase(res)) return;
-  const product = productToDb(await readJson(req));
-  const rows = await supabaseRest("products", {
+  const body = await readJson(req);
+  const request = {
     method: "POST",
     headers: { Prefer: "return=representation" },
-    body: JSON.stringify(product),
-  });
+    body: JSON.stringify(productToDb(body)),
+  };
+  let rows;
+  try {
+    rows = await supabaseRest("products", request);
+  } catch (error) {
+    if (!isMissingOfferTypeColumn(error)) throw error;
+    rows = await supabaseRest("products", {
+      ...request,
+      body: JSON.stringify(productToDb(body, { includeOfferType: false })),
+    });
+  }
   return sendJson(res, 201, productFromDb(rows[0]));
 }
 
@@ -72,11 +87,22 @@ async function updateProduct(req, res) {
   if (!requireAdmin(req, res) || !requireSupabase(res)) return;
   const body = await readJson(req);
   if (!body.id) return sendJson(res, 400, { error: "ID obrigatorio." });
-  const rows = await supabaseRest(`products?id=eq.${encodeURIComponent(body.id)}`, {
+  const path = `products?id=eq.${encodeURIComponent(body.id)}`;
+  const request = {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify(productToDb(body)),
-  });
+  };
+  let rows;
+  try {
+    rows = await supabaseRest(path, request);
+  } catch (error) {
+    if (!isMissingOfferTypeColumn(error)) throw error;
+    rows = await supabaseRest(path, {
+      ...request,
+      body: JSON.stringify(productToDb(body, { includeOfferType: false })),
+    });
+  }
   return sendJson(res, 200, productFromDb(rows[0]));
 }
 

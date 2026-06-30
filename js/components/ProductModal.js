@@ -1,4 +1,4 @@
-import { buildWhatsappUrl, formatCurrency } from "../config.js";
+import { buildWhatsappUrl, formatCurrency, getOfferLabel, getOfferType, productPath } from "../config.js";
 
 export function ProductModal(container) {
   function close() {
@@ -8,6 +8,7 @@ export function ProductModal(container) {
   }
 
   function open(product) {
+    const offerType = getOfferType(product);
     container.innerHTML = `
       <article class="product-modal" role="dialog" aria-modal="true" aria-labelledby="modal-product-name">
         <button class="modal-close" type="button" aria-label="Fechar produto" data-close-product>×</button>
@@ -17,7 +18,7 @@ export function ProductModal(container) {
         <div class="modal-info">
           <div class="modal-labels">
             <span class="product-badge">${product.category}</span>
-            ${product.weeklyOffer ? '<span class="offer-chip">Oferta da Semana</span>' : ""}
+            ${offerType !== "sem_oferta" ? `<span class="offer-chip">${getOfferLabel(offerType)}</span>` : ""}
           </div>
           <h2 id="modal-product-name">${product.name}</h2>
           <p>${product.details || product.description}</p>
@@ -33,7 +34,7 @@ export function ProductModal(container) {
               rel="noopener"
               aria-disabled="${product.available ? "false" : "true"}"
             >Pedir pelo WhatsApp</a>
-            <button class="button button-light" type="button" data-close-product>Voltar</button>
+            <a class="button button-light" href="${productPath(product)}">Ver pagina</a>
           </div>
         </div>
       </article>

@@ -1,4 +1,4 @@
-import { storeConfig } from "./config.js";
+import { getOfferType, storeConfig } from "./config.js";
 import { getAdminToken } from "./admin-session.js";
 
 function adminAuthHeaders() {
@@ -14,6 +14,7 @@ function createApiError(payload, fallbackMessage, status) {
 }
 
 function normalizeProduct(product) {
+  const offerType = product.offerType || product.offer_type || (product.weeklyOffer ?? product.is_offer ? "oferta_semana" : "sem_oferta");
   return {
     id: product.id || crypto.randomUUID(),
     name: product.name || "Novo produto",
@@ -23,7 +24,8 @@ function normalizeProduct(product) {
     price: Number(product.price || 0),
     image: product.image || product.imageUrl || product.image_url || "assets/logo-menezzi.jpg",
     imageUrl: product.imageUrl || product.image || product.image_url || "assets/logo-menezzi.jpg",
-    weeklyOffer: Boolean(product.weeklyOffer ?? product.is_offer),
+    offerType,
+    weeklyOffer: getOfferType({ offerType }) !== "sem_oferta",
     available: product.available ?? product.is_available ?? true,
     sortOrder: Number(product.sortOrder ?? product.sort_order ?? 0),
     createdAt: product.createdAt || product.created_at || null,

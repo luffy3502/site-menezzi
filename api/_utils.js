@@ -220,6 +220,7 @@ async function supabasePublicRest(path, options = {}) {
 }
 
 function productFromDb(product) {
+  const offerType = product.offer_type || (product.is_offer ? "oferta_semana" : "sem_oferta");
   return {
     id: product.id,
     name: product.name,
@@ -228,7 +229,8 @@ function productFromDb(product) {
     category: product.category || "Sem categoria",
     image: product.image_url || "assets/logo-menezzi.jpg",
     imageUrl: product.image_url || "assets/logo-menezzi.jpg",
-    weeklyOffer: Boolean(product.is_offer),
+    offerType,
+    weeklyOffer: offerType !== "sem_oferta",
     available: Boolean(product.is_available),
     sortOrder: Number(product.sort_order || 0),
     createdAt: product.created_at,
@@ -236,17 +238,20 @@ function productFromDb(product) {
   };
 }
 
-function productToDb(product) {
-  return {
+function productToDb(product, options = {}) {
+  const offerType = String(product.offerType || product.offer_type || (product.weeklyOffer || product.is_offer ? "oferta_semana" : "sem_oferta"));
+  const payload = {
     name: String(product.name || "").trim(),
     price: Number(product.price || 0),
     description: String(product.description || "").trim(),
     category: String(product.category || "Sem categoria").trim(),
     image_url: String(product.image || product.imageUrl || product.image_url || "").trim(),
-    is_offer: Boolean(product.weeklyOffer ?? product.is_offer),
+    is_offer: offerType !== "sem_oferta",
     is_available: product.available ?? product.is_available ?? true,
     sort_order: Number(product.sortOrder ?? product.sort_order ?? 0),
   };
+  if (options.includeOfferType !== false) payload.offer_type = offerType;
+  return payload;
 }
 
 module.exports = {

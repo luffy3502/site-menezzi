@@ -6,10 +6,14 @@ import {
   updateProduct,
   uploadProductImage,
 } from "../products-store.js";
-import { formatCurrency } from "../config.js";
+import { categoryOptions, formatCurrency, getOfferLabel, getOfferType, offerTypes } from "../config.js";
 
 const FALLBACK_IMAGE = "../assets/logo-menezzi.jpg";
-const DEFAULT_CATEGORIES = ["Bolsas", "Acessórios", "Perfumaria", "Presentes"];
+const DEFAULT_CATEGORIES = categoryOptions;
+const AVAILABILITY_OPTIONS = [
+  { value: "true", label: "Disponivel", tone: "success" },
+  { value: "false", label: "Indisponivel", tone: "danger" },
+];
 
 function adminImageSrc(image) {
   if (!image) return FALLBACK_IMAGE;
@@ -29,6 +33,10 @@ function sortVisibleProducts(products, sortMode) {
   return sortMode === "manual" ? byManualOrder(sorted) : sorted;
 }
 
+function normalizeCategory(category) {
+  return String(category || "").trim();
+}
+
 export function AdminProducts(root, initialProducts) {
   const form = root.querySelector("[data-product-form]");
   const formTitle = root.querySelector("[data-form-title]");
@@ -40,7 +48,14 @@ export function AdminProducts(root, initialProducts) {
   const availabilitySelect = root.querySelector("[data-admin-availability]");
   const offerSelect = root.querySelector("[data-admin-offer]");
   const sortSelect = root.querySelector("[data-admin-sort]");
-  const productCategorySelect = root.querySelector("[data-product-category]");
+  const productCategoryInput = root.querySelector("[data-product-category]");
+  const customCategoryInput = root.querySelector("[data-custom-category]");
+  const categoryChoicesEl = root.querySelector("[data-category-choices]");
+  const availabilityChoicesEl = root.querySelector("[data-availability-choices]");
+  const offerChoicesEl = root.querySelector("[data-offer-choices]");
+  const availableInput = root.querySelector("[data-product-available]");
+  const offerInput = root.querySelector("[data-product-offer]");
+  const clearFiltersButton = root.querySelector("[data-clear-filters]");
   const imageFile = root.querySelector("[data-image-file]");
   const imagePreview = root.querySelector("[data-image-preview]");
   const submitButton = form.querySelector('button[type="submit"]');
@@ -70,8 +85,11 @@ export function AdminProducts(root, initialProducts) {
   }
 
   function categoryChoices() {
-    const categories = getCategories(products);
-    return categories.length ? categories : DEFAULT_CATEGORIES;
+    return [...new Set([...DEFAULT_CATEGORIES, ...getCategories(products)].map(normalizeCategory).filter(Boolean))];
+  }
+
+  function selectedCategory() {
+    return normalizeCategory(customCategoryInput.value) || normalizeCategory(productCategoryInput.value) || DEFAULT_CATEGORIES[0];
   }
 
   function formDataToProduct() {
@@ -79,28 +97,39 @@ export function AdminProducts(root, initialProducts) {
     const id = data.get("id");
     const existing = products.find((product) => product.id === id);
     const image = data.get("image") || existing?.image || "";
+    const offerType = offerInput.value || "sem_oferta";
 
     return {
       id,
       name: data.get("name").trim(),
       price: Number(data.get("price")),
-      category: data.get("category"),
+      category: selectedCategory(),
       image,
       imageUrl: image,
       description: data.get("description").trim(),
-      weeklyOffer: data.get("weeklyOffer") === "on",
-      available: data.get("available") === "on",
+      offerType,
+      weeklyOffer: offerType !== "sem_oferta",
+      available: availableInput.value === "true",
       sortOrder: existing?.sortOrder || currentMaxSortOrder() + 1,
     };
+  }
+
+  function setChoiceValue(input, value) {
+    input.value = value;
+    renderFormChoices();
   }
 
   function clearForm() {
     form.reset();
     form.elements.id.value = "";
     form.elements.image.value = "";
-    form.elements.available.checked = true;
+    availableInput.value = "true";
+    offerInput.value = "sem_oferta";
+    productCategoryInput.value = DEFAULT_CATEGORIES[0];
+    customCategoryInput.value = "";
     imagePreview.src = FALLBACK_IMAGE;
     formTitle.textContent = "Novo produto";
+    renderFormChoices();
     setMessage("");
     setUploadMessage("");
   }
@@ -109,16 +138,19 @@ export function AdminProducts(root, initialProducts) {
     const product = products.find((item) => item.id === productId);
     if (!product) return;
 
+    const knownCategories = categoryChoices();
     form.elements.id.value = product.id;
     form.elements.name.value = product.name;
     form.elements.price.value = product.price;
-    form.elements.category.value = product.category;
+    productCategoryInput.value = knownCategories.includes(product.category) ? product.category : DEFAULT_CATEGORIES[0];
+    customCategoryInput.value = knownCategories.includes(product.category) ? "" : product.category;
     form.elements.image.value = product.image;
     form.elements.description.value = product.description;
-    form.elements.weeklyOffer.checked = product.weeklyOffer;
-    form.elements.available.checked = product.available;
+    availableInput.value = String(Boolean(product.available));
+    offerInput.value = getOfferType(product);
     imagePreview.src = adminImageSrc(product.image);
     formTitle.textContent = "Editar produto";
+    renderFormChoices();
     setMessage("");
     setUploadMessage("");
     form.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -158,7 +190,11 @@ export function AdminProducts(root, initialProducts) {
     const patch =
       field === "available"
         ? { ...product, available: !product.available }
-        : { ...product, weeklyOffer: !product.weeklyOffer };
+        : {
+            ...product,
+            offerType: product.weeklyOffer ? "sem_oferta" : "oferta_semana",
+            weeklyOffer: !product.weeklyOffer,
+          };
     const saved = await updateProduct(patch);
     products = products.map((item) => (item.id === saved.id ? saved : item));
     render();
@@ -194,8 +230,7 @@ export function AdminProducts(root, initialProducts) {
         availability === "Todos" ||
         (availability === "Disponivel" && product.available) ||
         (availability === "Indisponivel" && !product.available);
-      const matchesOffer =
-        offer === "Todos" || (offer === "Oferta" && product.weeklyOffer) || (offer === "Normal" && !product.weeklyOffer);
+      const matchesOffer = offer === "Todos" || getOfferType(product) === offer;
 
       return matchesTerm && matchesCategory && matchesAvailability && matchesOffer;
     });
@@ -203,18 +238,54 @@ export function AdminProducts(root, initialProducts) {
     return sortVisibleProducts(filtered, sortSelect.value);
   }
 
+  function renderFormChoices() {
+    const selected = selectedCategory();
+    categoryChoicesEl.innerHTML = categoryChoices()
+      .map(
+        (category) => `
+          <button class="choice-chip ${selected === category && !customCategoryInput.value ? "is-selected" : ""}" type="button" data-set-category="${category}">
+            ${category}
+          </button>
+        `
+      )
+      .join("");
+
+    availabilityChoicesEl.innerHTML = AVAILABILITY_OPTIONS.map(
+      (option) => `
+        <button class="choice-chip ${option.tone} ${availableInput.value === option.value ? "is-selected" : ""}" type="button" data-set-available="${option.value}">
+          ${option.label}
+        </button>
+      `
+    ).join("");
+
+    offerChoicesEl.innerHTML = offerTypes
+      .map(
+        (offer) => `
+          <button class="choice-chip offer-choice ${offerInput.value === offer.value ? "is-selected" : ""}" type="button" data-set-offer="${offer.value}">
+            ${offer.label}
+          </button>
+        `
+      )
+      .join("");
+  }
+
   function renderFilters() {
     const categories = categoryChoices();
     const currentCategory = categorySelect.value || "Todos";
-    const currentProductCategory = productCategorySelect.value || categories[0];
-
     categorySelect.innerHTML = ["Todos", ...categories]
       .map((category) => `<option value="${category}">${category}</option>`)
       .join("");
     categorySelect.value = categories.includes(currentCategory) ? currentCategory : "Todos";
 
-    productCategorySelect.innerHTML = categories.map((category) => `<option value="${category}">${category}</option>`).join("");
-    productCategorySelect.value = categories.includes(currentProductCategory) ? currentProductCategory : categories[0];
+    const currentOffer = offerSelect.value || "Todos";
+    offerSelect.innerHTML = [
+      '<option value="Todos">Todos</option>',
+      ...offerTypes.map((offer) => `<option value="${offer.value}">${offer.label}</option>`),
+    ].join("");
+    offerSelect.value = currentOffer === "Todos" || offerTypes.some((offer) => offer.value === currentOffer) ? currentOffer : "Todos";
+
+    if (!productCategoryInput.value) productCategoryInput.value = categories[0] || DEFAULT_CATEGORIES[0];
+    renderFormChoices();
   }
 
   function renderList() {
@@ -224,6 +295,7 @@ export function AdminProducts(root, initialProducts) {
       visibleProducts
         .map((product) => {
           const index = products.findIndex((item) => item.id === product.id);
+          const offerType = getOfferType(product);
           return `
             <article class="admin-product">
               <img src="${adminImageSrc(product.image)}" alt="${product.name}" />
@@ -232,12 +304,12 @@ export function AdminProducts(root, initialProducts) {
                   <h3>${product.name}</h3>
                   <strong>${formatCurrency(product.price)}</strong>
                 </div>
-                <p>${product.category}</p>
                 <div class="status-row">
+                  <span class="status-category">${product.category}</span>
                   <span class="${product.available ? "status-ok" : "status-muted"}">
                     ${product.available ? "Disponivel" : "Indisponivel"}
                   </span>
-                  ${product.weeklyOffer ? '<span class="status-offer">Oferta</span>' : ""}
+                  ${offerType !== "sem_oferta" ? `<span class="status-offer">${getOfferLabel(offerType)}</span>` : '<span class="status-soft">Sem oferta</span>'}
                 </div>
               </div>
               <div class="admin-actions">
@@ -288,9 +360,31 @@ export function AdminProducts(root, initialProducts) {
   });
 
   root.querySelector("[data-clear-form]").addEventListener("click", clearForm);
+  clearFiltersButton.addEventListener("click", () => {
+    search.value = "";
+    categorySelect.value = "Todos";
+    availabilitySelect.value = "Todos";
+    offerSelect.value = "Todos";
+    sortSelect.value = "manual";
+    renderList();
+  });
+
   [search, categorySelect, availabilitySelect, offerSelect, sortSelect].forEach((control) => {
     control.addEventListener("input", renderList);
     control.addEventListener("change", renderList);
+  });
+
+  customCategoryInput.addEventListener("input", renderFormChoices);
+  form.addEventListener("click", (event) => {
+    const category = event.target.closest("[data-set-category]");
+    const available = event.target.closest("[data-set-available]");
+    const offer = event.target.closest("[data-set-offer]");
+    if (category) {
+      customCategoryInput.value = "";
+      setChoiceValue(productCategoryInput, category.dataset.setCategory);
+    }
+    if (available) setChoiceValue(availableInput, available.dataset.setAvailable);
+    if (offer) setChoiceValue(offerInput, offer.dataset.setOffer);
   });
 
   imageFile.addEventListener("change", async () => {

@@ -7,12 +7,20 @@ create table if not exists public.products (
   description text not null default '',
   category text not null default 'Sem categoria',
   image_url text not null default '',
+  offer_type text not null default 'sem_oferta',
   is_offer boolean not null default false,
   is_available boolean not null default true,
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.products
+  add column if not exists offer_type text not null default 'sem_oferta';
+
+update public.products
+set offer_type = case when is_offer then 'oferta_semana' else 'sem_oferta' end
+where offer_type is null or offer_type = '';
 
 create index if not exists products_available_sort_idx
   on public.products (is_available, sort_order, created_at);

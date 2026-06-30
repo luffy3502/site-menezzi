@@ -19,6 +19,8 @@ const categorySummary = document.querySelector("[data-category-summary]");
 const productGridEl = document.querySelector("[data-product-grid]");
 const offersGridEl = document.querySelector("[data-offers-grid]");
 const emptyState = document.querySelector("[data-empty-state]");
+const galleryEl = document.querySelector("[data-store-gallery]");
+const galleryModal = document.querySelector("[data-gallery-modal]");
 const modal = ProductModal(document.querySelector("[data-product-modal]"));
 
 let revealObserver;
@@ -28,6 +30,12 @@ const categoryFilter = CategoryFilter(categoryFilterEl, (category) => {
 });
 const productGrid = ProductGrid(productGridEl, emptyState, openProduct);
 const offersGrid = ProductGrid(offersGridEl, null, openProduct);
+
+function renderSkeletons() {
+  const skeleton = Array.from({ length: 6 }, () => '<article class="product-skeleton"></article>').join("");
+  productGridEl.innerHTML = skeleton;
+  offersGridEl.innerHTML = Array.from({ length: 3 }, () => '<article class="product-skeleton"></article>').join("");
+}
 
 function availableProducts() {
   return state.products.filter((product) => product.available);
@@ -116,12 +124,30 @@ function observeRevealItems() {
 }
 
 async function boot() {
+  renderSkeletons();
   state.products = await loadProducts();
   setWhatsappLinks();
   renderCategories();
   renderOffers();
   renderCatalog();
   observeRevealItems();
+}
+
+function openGalleryImage(src, alt) {
+  galleryModal.innerHTML = `
+    <figure class="gallery-dialog">
+      <button class="modal-close" type="button" aria-label="Fechar imagem" data-close-gallery>X</button>
+      <img src="${src}" alt="${alt}" />
+    </figure>
+  `;
+  galleryModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function closeGalleryImage() {
+  galleryModal.hidden = true;
+  galleryModal.innerHTML = "";
+  document.body.classList.remove("modal-open");
 }
 
 searchInput.addEventListener("input", (event) => {
@@ -152,6 +178,23 @@ window.addEventListener("products:updated", (event) => {
   renderCategories();
   renderOffers();
   renderCatalog();
+});
+
+if (galleryEl && galleryModal) {
+  galleryEl.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-gallery-image]");
+    if (!button) return;
+    const image = button.querySelector("img");
+    openGalleryImage(button.dataset.galleryImage, image?.alt || "Foto da loja MENEZZI");
+  });
+
+  galleryModal.addEventListener("click", (event) => {
+    if (event.target === galleryModal || event.target.closest("[data-close-gallery]")) closeGalleryImage();
+  });
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && galleryModal && !galleryModal.hidden) closeGalleryImage();
 });
 
 boot().catch((error) => {
