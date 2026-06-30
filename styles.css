@@ -1392,6 +1392,163 @@ noscript {
   margin: 0;
 }
 
+/* Admin layout repair: keep this after the legacy admin rules so deploy CSS order stays stable. */
+.admin-page {
+  min-height: 100vh;
+  display: flex;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.admin-page *,
+.admin-page *::before,
+.admin-page *::after {
+  box-sizing: border-box;
+}
+
+.admin-page img {
+  max-width: 100%;
+  height: auto;
+}
+
+.admin-page .admin-app {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  align-items: stretch;
+}
+
+.admin-page .admin-sidebar {
+  position: sticky;
+  top: 0;
+  flex: 0 0 260px;
+  width: 260px;
+  min-width: 240px;
+  max-width: 280px;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 24px 18px;
+}
+
+.admin-page .admin-sidebar-brand {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.admin-page .admin-sidebar-brand img,
+.admin-page .brand img {
+  display: block;
+  width: auto;
+  max-width: 160px;
+  height: auto;
+  max-height: 64px;
+  object-fit: contain;
+}
+
+.admin-page .admin-sidebar-brand span {
+  font-size: 0.86rem;
+  letter-spacing: 0;
+}
+
+.admin-page .admin-main,
+.admin-page .admin-workspace {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+  padding: 28px;
+}
+
+.admin-page .admin-workspace-header {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto 24px;
+}
+
+.admin-page .admin-section {
+  width: 100%;
+}
+
+.admin-page .admin-section.is-active {
+  display: block;
+}
+
+.admin-page .admin-layout {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-page .admin-card,
+.admin-page .admin-form,
+.admin-page .admin-products-panel,
+.admin-page .settings-form {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
+.admin-page .admin-form {
+  position: sticky;
+  top: 24px;
+  padding: 22px;
+  gap: 16px;
+}
+
+.admin-page .admin-products-panel {
+  padding: 20px;
+}
+
+.admin-page .admin-toolbar {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(150px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.admin-page .admin-toolbar input,
+.admin-page .admin-toolbar select,
+.admin-page .admin-form input,
+.admin-page .admin-form select,
+.admin-page .admin-form textarea,
+.admin-page .settings-form input,
+.admin-page .settings-form textarea,
+.admin-page .settings-form select {
+  width: 100%;
+  min-width: 0;
+  font-size: 0.95rem;
+}
+
+.admin-page .admin-product {
+  grid-template-columns: 96px minmax(0, 1fr) minmax(280px, 0.75fr);
+  gap: 16px;
+}
+
+.admin-page .admin-product img {
+  width: 96px;
+  height: 112px;
+  max-width: 96px;
+  object-fit: cover;
+}
+
+.admin-page .dashboard-grid,
+.admin-page [data-admin-section="categorias"] > .admin-card,
+.admin-page [data-admin-section="ofertas"] > .admin-card,
+.admin-page [data-admin-section="galeria"] > .admin-card,
+.admin-page [data-admin-section="banner"] > .admin-card,
+.admin-page [data-admin-section="configuracoes"] > .admin-card {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
 .admin-topbar {
   position: sticky;
   top: 0;
@@ -2135,6 +2292,211 @@ noscript {
 
   .admin-product img {
     width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
+}
+
+/* Final admin layout lock. Must remain at the end to beat earlier responsive rules. */
+.admin-page {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.admin-page *,
+.admin-page *::before,
+.admin-page *::after {
+  box-sizing: border-box;
+}
+
+.admin-page img {
+  max-width: 100%;
+  height: auto;
+}
+
+.admin-page .admin-app {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  align-items: stretch;
+}
+
+.admin-page .admin-sidebar {
+  position: sticky;
+  top: 0;
+  flex: 0 0 260px;
+  width: 260px;
+  min-width: 240px;
+  max-width: 280px;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 24px 18px;
+}
+
+.admin-page .admin-sidebar-brand img,
+.admin-page .brand img {
+  width: auto;
+  max-width: 160px;
+  height: auto;
+  max-height: 64px;
+  object-fit: contain;
+}
+
+.admin-page .admin-main,
+.admin-page .admin-workspace {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+  padding: 28px;
+}
+
+.admin-page .admin-workspace-header,
+.admin-page .admin-layout,
+.admin-page .dashboard-grid,
+.admin-page [data-admin-section="categorias"] > .admin-card,
+.admin-page [data-admin-section="ofertas"] > .admin-card,
+.admin-page [data-admin-section="galeria"] > .admin-card,
+.admin-page [data-admin-section="banner"] > .admin-card,
+.admin-page [data-admin-section="configuracoes"] > .admin-card {
+  width: 100%;
+  max-width: 1280px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.admin-page .admin-layout {
+  display: grid;
+  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-page .admin-form {
+  position: sticky;
+  top: 24px;
+  width: 100%;
+  min-width: 0;
+  padding: 22px;
+}
+
+.admin-page .admin-products-panel {
+  width: 100%;
+  min-width: 0;
+  padding: 20px;
+}
+
+.admin-page .admin-toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  align-items: end;
+  width: 100%;
+}
+
+.admin-page .admin-toolbar input,
+.admin-page .admin-toolbar select,
+.admin-page .admin-form input,
+.admin-page .admin-form select,
+.admin-page .admin-form textarea,
+.admin-page .settings-form input,
+.admin-page .settings-form textarea,
+.admin-page .settings-form select {
+  width: 100%;
+  min-width: 0;
+  font-size: 0.95rem;
+}
+
+.admin-page .clear-filters {
+  width: 100%;
+}
+
+.admin-page .admin-product {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) minmax(280px, 0.75fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.admin-page .admin-product img {
+  width: 96px;
+  max-width: 96px;
+  height: 112px;
+  aspect-ratio: auto;
+  object-fit: cover;
+}
+
+@media (max-width: 1180px) {
+  .admin-page .admin-app {
+    display: block;
+  }
+
+  .admin-page .admin-sidebar {
+    position: static;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    height: auto;
+    padding: 18px;
+  }
+
+  .admin-page .admin-menu {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .admin-page .admin-main,
+  .admin-page .admin-workspace {
+    width: 100%;
+    padding: 24px;
+  }
+
+  .admin-page .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-page .admin-form {
+    position: static;
+  }
+
+  .admin-page .admin-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-page .admin-sidebar {
+    padding: 14px;
+  }
+
+  .admin-page .admin-sidebar-brand img {
+    max-width: 132px;
+  }
+
+  .admin-page .admin-menu,
+  .admin-page .admin-toolbar,
+  .admin-page .admin-product,
+  .admin-page .settings-grid,
+  .admin-page .inline-control,
+  .admin-page .dashboard-grid,
+  .admin-page .gallery-admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-page .admin-main,
+  .admin-page .admin-workspace {
+    padding: 16px;
+  }
+
+  .admin-page .admin-workspace-header,
+  .admin-page .panel-heading {
+    display: grid;
+  }
+
+  .admin-page .admin-product img {
+    width: 100%;
+    max-width: none;
     height: auto;
     aspect-ratio: 4 / 3;
   }
