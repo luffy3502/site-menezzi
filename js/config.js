@@ -34,7 +34,8 @@ export function createProductSlug(name) {
 }
 
 export function productPath(product) {
-  return `/produto/${createProductSlug(product?.name || product?.id || "produto")}`;
+  const slug = createProductSlug(product?.name || "produto");
+  return product?.id ? `/produto/${product.id}-${slug}` : `/produto/${slug}`;
 }
 
 export function absoluteProductUrl(product) {

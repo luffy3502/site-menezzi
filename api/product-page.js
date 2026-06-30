@@ -1,6 +1,7 @@
-const { productFromDb, requirePublicSupabase, sendJson, supabasePublicRest } = require("./_utils");
+const { isSupabaseConfigured, productFromDb, supabaseRest } = require("./_utils");
 
 const WHATSAPP_NUMBER = "5575997092692";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
 const OFFER_LABELS = {
   sem_oferta: "Sem oferta",
   oferta_semana: "Oferta da semana",
@@ -46,7 +47,12 @@ function imageUrl(req, image) {
 }
 
 function productPath(product) {
-  return `/produto/${slugify(product.name)}`;
+  return `/produto/${product.id}-${slugify(product.name)}`;
+}
+
+function productIdFromKey(key) {
+  const match = String(key || "").match(UUID_RE);
+  return match ? match[0] : "";
 }
 
 function whatsappUrl(product, url) {
@@ -69,6 +75,75 @@ Gostaria de mais informacoes.`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 }
 
+function baseHead(title, description, image, url, type = "website") {
+  return `
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}" />
+    <meta property="og:title" content="${escapeHtml(title)}" />
+    <meta property="og:description" content="${escapeHtml(description)}" />
+    <meta property="og:image" content="${escapeHtml(image)}" />
+    <meta property="og:url" content="${escapeHtml(url)}" />
+    <meta property="og:type" content="${escapeHtml(type)}" />
+    <link rel="icon" href="/assets/logo-menezzi.jpg" />
+    <link rel="stylesheet" href="/styles.css" />
+  `;
+}
+
+function renderShell(req, statusCode, title, body) {
+  const url = absoluteUrl(req, req.url || "/produto");
+  const image = absoluteUrl(req, "/assets/logo-menezzi.jpg");
+  return {
+    statusCode,
+    html: `<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>${baseHead(`${title} | MENEZZI`, "Vitrine MENEZZI.", image, url)}</head>
+  <body class="product-page">
+    <header class="admin-topbar product-topbar">
+      <a class="brand" href="/" aria-label="Voltar para a MENEZZI">
+        <img src="/assets/logo-menezzi.jpg" alt="Logo MENEZZI" />
+      </a>
+      <div>
+        <strong>MENEZZI</strong>
+        <span>Vitrine de produtos</span>
+      </div>
+      <a class="button button-light" href="/#vitrine">Ver vitrine</a>
+    </header>
+    <main class="product-detail-shell">${body}</main>
+  </body>
+</html>`,
+  };
+}
+
+function renderNotFound(req) {
+  return renderShell(
+    req,
+    404,
+    "Produto nao encontrado",
+    `<section class="product-empty-page">
+      <span class="section-kicker">Produto</span>
+      <h1>Produto nao encontrado</h1>
+      <p>Este link pode ser antigo ou o produto pode ter sido removido da vitrine.</p>
+      <a class="button button-primary" href="/#vitrine">Voltar para a vitrine</a>
+    </section>`
+  );
+}
+
+function renderError(req) {
+  return renderShell(
+    req,
+    500,
+    "Produto indisponivel",
+    `<section class="product-empty-page">
+      <span class="section-kicker">Produto</span>
+      <h1>Nao foi possivel carregar este produto</h1>
+      <p>Tente novamente em instantes ou volte para a vitrine da MENEZZI.</p>
+      <a class="button button-primary" href="/#vitrine">Voltar para a vitrine</a>
+    </section>`
+  );
+}
+
 function renderProduct(req, product, related) {
   const url = absoluteUrl(req, productPath(product));
   const image = imageUrl(req, product.image);
@@ -89,19 +164,7 @@ function renderProduct(req, product, related) {
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${escapeHtml(product.name)} | MENEZZI</title>
-    <meta name="description" content="${escapeHtml(description)}" />
-    <meta property="og:title" content="${escapeHtml(product.name)} | MENEZZI" />
-    <meta property="og:description" content="${escapeHtml(description)}" />
-    <meta property="og:image" content="${escapeHtml(image)}" />
-    <meta property="og:url" content="${escapeHtml(url)}" />
-    <meta property="og:type" content="product" />
-    <link rel="icon" href="/assets/logo-menezzi.jpg" />
-    <link rel="stylesheet" href="/styles.css" />
-  </head>
+  <head>${baseHead(`${product.name} | MENEZZI`, description, image, url, "product")}</head>
   <body class="product-page">
     <header class="admin-topbar product-topbar">
       <a class="brand" href="/" aria-label="Voltar para a MENEZZI">
@@ -152,24 +215,42 @@ function renderProduct(req, product, related) {
 </html>`;
 }
 
+async function findProductByKey(key) {
+  const cleanKey = String(key || "").replace(/^\/+|\/+$/g, "");
+  const id = productIdFromKey(cleanKey);
+
+  if (id) {
+    const rows = await supabaseRest(`products?select=*&id=eq.${encodeURIComponent(id)}&limit=1`);
+    if (rows.length) return productFromDb(rows[0]);
+  }
+
+  const rows = await supabaseRest("products?select=*&order=sort_order.asc,created_at.desc");
+  return rows.map(productFromDb).find((item) => slugify(item.name) === cleanKey || `${item.id}-${slugify(item.name)}` === cleanKey);
+}
+
 module.exports = async function handler(req, res) {
   try {
-    if (!requirePublicSupabase(res)) return;
+    if (!isSupabaseConfigured()) {
+      const page = renderError(req);
+      res.writeHead(page.statusCode, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(page.html);
+      return;
+    }
     const url = new URL(req.url, `http://${req.headers.host}`);
-    const slug = String(url.searchParams.get("slug") || "").replace(/^\/+|\/+$/g, "");
-    const rows = await supabasePublicRest("products?select=*&is_available=eq.true&order=sort_order.asc,created_at.desc");
-    const products = rows.map(productFromDb);
-    const product = products.find((item) => slugify(item.name) === slug);
+    const key = url.searchParams.get("slug") || url.searchParams.get("id") || "";
+    const product = await findProductByKey(key);
 
     if (!product) {
-      res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
-      res.end("<h1>Produto nao encontrado</h1><p>Volte para a <a href=\"/#vitrine\">vitrine MENEZZI</a>.</p>");
+      const page = renderNotFound(req);
+      res.writeHead(page.statusCode, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(page.html);
       return;
     }
 
-    const related = products
-      .filter((item) => item.id !== product.id && (item.category === product.category || item.weeklyOffer))
-      .slice(0, 4);
+    const relatedRows = await supabaseRest(
+      `products?select=*&is_available=eq.true&category=eq.${encodeURIComponent(product.category)}&id=neq.${encodeURIComponent(product.id)}&order=sort_order.asc,created_at.desc&limit=4`
+    );
+    const related = relatedRows.map(productFromDb);
 
     res.writeHead(200, {
       "Content-Type": "text/html; charset=utf-8",
@@ -178,6 +259,8 @@ module.exports = async function handler(req, res) {
     res.end(renderProduct(req, product, related));
   } catch (error) {
     console.error("[Product page error]", error);
-    sendJson(res, 500, { error: "Nao foi possivel carregar o produto." });
+    const page = renderError(req);
+    res.writeHead(page.statusCode, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(page.html);
   }
 };
