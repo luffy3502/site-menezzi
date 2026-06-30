@@ -5,5 +5,5 @@ values
   ('Bolsa Casual Chic', 180.00, 'Praticidade e elegancia para o dia a dia.', 'Bolsas', 'assets/bolsa-casual-chic.jpg', false, true, 2),
   ('Kit Presente Especial', 149.90, 'Uma opcao charmosa para surpreender em datas especiais.', 'Presentes', 'assets/bolsa-tote.jpg', true, true, 3),
   ('Perfume Feminino Premium', 129.90, 'Fragrancia marcante e sofisticada.', 'Perfumaria', 'assets/bolsa-classica.jpg', false, true, 4),
-  ('Acessorio Dourado', 59.90, 'Detalhe delicado para valorizar sua producao.', 'Acessorios', 'assets/hero-bolsa-preta.jpg', false, true, 5),
+  ('Acessorio Dourado', 59.90, 'Detalhe delicado para valorizar sua producao.', 'Acessórios', 'assets/hero-bolsa-preta.jpg', false, true, 5),
   ('Bolsa Classica', 169.90, 'Modelo atemporal para diversas ocasioes.', 'Bolsas', 'assets/bolsa-classica.jpg', false, false, 6);

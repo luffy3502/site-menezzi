@@ -9,6 +9,7 @@ import {
 import { formatCurrency } from "../config.js";
 
 const FALLBACK_IMAGE = "../assets/logo-menezzi.jpg";
+const DEFAULT_CATEGORIES = ["Bolsas", "Acessórios", "Perfumaria", "Presentes"];
 
 function adminImageSrc(image) {
   if (!image) return FALLBACK_IMAGE;
@@ -39,7 +40,7 @@ export function AdminProducts(root, initialProducts) {
   const availabilitySelect = root.querySelector("[data-admin-availability]");
   const offerSelect = root.querySelector("[data-admin-offer]");
   const sortSelect = root.querySelector("[data-admin-sort]");
-  const categoryOptions = root.querySelector("[data-category-options]");
+  const productCategorySelect = root.querySelector("[data-product-category]");
   const imageFile = root.querySelector("[data-image-file]");
   const imagePreview = root.querySelector("[data-image-preview]");
   const submitButton = form.querySelector('button[type="submit"]');
@@ -68,6 +69,11 @@ export function AdminProducts(root, initialProducts) {
     return products.reduce((max, product) => Math.max(max, product.sortOrder || 0), 0);
   }
 
+  function categoryChoices() {
+    const categories = getCategories(products);
+    return categories.length ? categories : DEFAULT_CATEGORIES;
+  }
+
   function formDataToProduct() {
     const data = new FormData(form);
     const id = data.get("id");
@@ -78,7 +84,7 @@ export function AdminProducts(root, initialProducts) {
       id,
       name: data.get("name").trim(),
       price: Number(data.get("price")),
-      category: data.get("category").trim(),
+      category: data.get("category"),
       image,
       imageUrl: image,
       description: data.get("description").trim(),
@@ -198,13 +204,17 @@ export function AdminProducts(root, initialProducts) {
   }
 
   function renderFilters() {
-    const categories = getCategories(products);
+    const categories = categoryChoices();
     const currentCategory = categorySelect.value || "Todos";
+    const currentProductCategory = productCategorySelect.value || categories[0];
+
     categorySelect.innerHTML = ["Todos", ...categories]
       .map((category) => `<option value="${category}">${category}</option>`)
       .join("");
     categorySelect.value = categories.includes(currentCategory) ? currentCategory : "Todos";
-    categoryOptions.innerHTML = categories.map((category) => `<option value="${category}"></option>`).join("");
+
+    productCategorySelect.innerHTML = categories.map((category) => `<option value="${category}">${category}</option>`).join("");
+    productCategorySelect.value = categories.includes(currentProductCategory) ? currentProductCategory : categories[0];
   }
 
   function renderList() {

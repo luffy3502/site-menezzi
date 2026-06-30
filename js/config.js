@@ -14,8 +14,8 @@ export function formatCurrency(value) {
 
 export function buildWhatsappUrl(product) {
   const text = product
-    ? `Olá!\n\nTenho interesse no produto:\n\n*${product.name}*\n\nValor: ${formatCurrency(product.price)}\n\nGostaria de mais informações.`
-    : "Olá! Gostaria de mais informações sobre os produtos da MENEZZI.";
+    ? `Olá! Tenho interesse no produto: ${product.name} - Valor: ${formatCurrency(product.price)}`
+    : "Olá! Tenho interesse nos produtos da MENEZZI.";
 
   return `https://wa.me/${storeConfig.whatsappNumber}?text=${encodeURIComponent(text)}`;
 }

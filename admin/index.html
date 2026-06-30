@@ -62,9 +62,8 @@
             <input name="price" type="number" min="0" step="0.01" required placeholder="0,00" />
           </label>
           <label>Categoria
-            <input name="category" type="text" list="category-list" required placeholder="Bolsas" />
+            <select name="category" required data-product-category></select>
           </label>
-          <datalist id="category-list" data-category-options></datalist>
           <input type="hidden" name="image" />
           <label>Foto do Produto
             <input name="imageFile" type="file" accept="image/*" data-image-file />
@@ -130,7 +129,7 @@
           <div class="admin-products-list" data-admin-list></div>
           <p class="admin-note">
             As alteracoes sao salvas no Supabase e aparecem para todos os visitantes assim que a vitrine for recarregada.
-            Cadastre categorias livremente: elas aparecem automaticamente nos filtros da vitrine.
+            As categorias do painel e da vitrine sao geradas a partir dos produtos cadastrados no Supabase.
           </p>
         </section>
       </section>
