@@ -4,13 +4,21 @@ const {
   productToDb,
   readJson,
   requireAdmin,
-  requirePublicSupabase,
   requireSupabase,
   sendJson,
-  supabasePublicRest,
   supabaseRest,
 } = require("./_utils");
 const { demoProducts } = require("./_demo-products");
+
+function supabaseErrorPayload(error) {
+  return {
+    error: error.message,
+    status: error.status,
+    statusText: error.statusText,
+    supabase: error.supabase,
+    request: error.request,
+  };
+}
 
 async function seedDemoProductsIfEmpty() {
   if (!isSupabaseConfigured()) return [];
@@ -41,11 +49,11 @@ async function listProducts(req, res) {
     return sendJson(res, 200, rows.map(productFromDb));
   }
 
-  if (!requirePublicSupabase(res)) return;
+  if (!requireSupabase(res)) return;
 
   await seedDemoProductsIfEmpty().catch(() => []);
 
-  const rows = await supabasePublicRest("products?select=*&is_available=eq.true&order=sort_order.asc,created_at.desc");
+  const rows = await supabaseRest("products?select=*&is_available=eq.true&order=sort_order.asc,created_at.desc");
   return sendJson(res, 200, rows.map(productFromDb));
 }
 
@@ -111,6 +119,7 @@ module.exports = async function handler(req, res) {
     if (req.method === "DELETE") return await deleteProduct(req, res);
     return sendJson(res, 405, { error: "Metodo nao permitido." });
   } catch (error) {
-    return sendJson(res, 500, { error: error.message });
+    console.error("[Products API error]", supabaseErrorPayload(error));
+    return sendJson(res, 500, supabaseErrorPayload(error));
   }
 };

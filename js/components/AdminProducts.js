@@ -280,6 +280,7 @@ export function AdminProducts(root, initialProducts) {
       clearForm();
       setMessage("Produto salvo com sucesso.");
     } catch (error) {
+      console.error("Erro completo ao salvar produto no Supabase:", error);
       setMessage(error.message, true);
     } finally {
       setBusy(false);
@@ -315,6 +316,7 @@ export function AdminProducts(root, initialProducts) {
 
       setUploadMessage("Upload concluido.");
     } catch (error) {
+      console.error("Erro completo ao enviar imagem para o Supabase:", error);
       setUploadMessage("Erro ao enviar imagem.", true);
       form.elements.image.value = "";
     } finally {
@@ -339,6 +341,7 @@ export function AdminProducts(root, initialProducts) {
       if (toggleAvailable) await toggleProduct(toggleAvailable.dataset.toggleAvailable, "available");
       if (toggleOffer) await toggleProduct(toggleOffer.dataset.toggleOffer, "offer");
     } catch (error) {
+      console.error("Erro completo na acao de produto do Supabase:", error);
       setMessage(error.message, true);
     }
   });

@@ -6,6 +6,13 @@ function adminAuthHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function createApiError(payload, fallbackMessage, status) {
+  const error = new Error(payload.error || fallbackMessage);
+  error.status = status;
+  error.details = payload;
+  return error;
+}
+
 function normalizeProduct(product) {
   return {
     id: product.id || crypto.randomUUID(),
@@ -32,10 +39,7 @@ export async function loadProducts({ admin = false } = {}) {
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    const error = new Error(payload.error || "Nao foi possivel carregar os produtos do Supabase.");
-    error.status = response.status;
-    error.details = payload;
-    throw error;
+    throw createApiError(payload, "Nao foi possivel carregar os produtos do Supabase.", response.status);
   }
   return (await response.json()).map(normalizeProduct);
 }
@@ -49,9 +53,7 @@ async function requestProduct(method, product) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(payload.error || "Nao foi possivel salvar o produto.");
-    error.status = response.status;
-    throw error;
+    throw createApiError(payload, "Nao foi possivel salvar o produto.", response.status);
   }
   return normalizeProduct(payload);
 }
@@ -72,9 +74,7 @@ export async function deleteProduct(productId) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(payload.error || "Nao foi possivel excluir o produto.");
-    error.status = response.status;
-    throw error;
+    throw createApiError(payload, "Nao foi possivel excluir o produto.", response.status);
   }
   return payload;
 }
@@ -88,9 +88,7 @@ export async function reorderProducts(ids) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(payload.error || "Nao foi possivel reordenar os produtos.");
-    error.status = response.status;
-    throw error;
+    throw createApiError(payload, "Nao foi possivel reordenar os produtos.", response.status);
   }
   return payload.map(normalizeProduct);
 }
@@ -115,9 +113,7 @@ export async function uploadProductImage(file) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(payload.error || "Nao foi possivel enviar a imagem.");
-    error.status = response.status;
-    throw error;
+    throw createApiError(payload, "Nao foi possivel enviar a imagem.", response.status);
   }
   return payload.url;
 }

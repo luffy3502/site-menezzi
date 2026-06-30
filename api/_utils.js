@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { supabaseConfig } = require("./supabase-config");
+const { getSupabaseConfigReport, supabaseConfig } = require("./supabase-config");
 
 const SESSION_COOKIE = "menezzi_admin_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
@@ -13,22 +13,29 @@ function sendJson(res, statusCode, payload, headers = {}) {
 }
 
 function isSupabaseConfigured() {
-  return Boolean(supabaseConfig.url && supabaseConfig.serviceRoleKey);
+  const report = getSupabaseConfigReport();
+  return Boolean(supabaseConfig.url && supabaseConfig.serviceRoleKey && !report.issues.length);
 }
 
 function isPublicSupabaseConfigured() {
-  return Boolean(supabaseConfig.url && (supabaseConfig.anonKey || supabaseConfig.serviceRoleKey));
+  const report = getSupabaseConfigReport();
+  const publicIssues = report.issues.filter((issue) => !issue.includes("SUPABASE_SERVICE_ROLE_KEY"));
+  return Boolean(supabaseConfig.url && (supabaseConfig.anonKey || supabaseConfig.serviceRoleKey) && !publicIssues.length);
 }
 
 function requireSupabase(res) {
   if (isSupabaseConfigured()) return true;
-  sendJson(res, 503, { error: "Supabase nao configurado." });
+  const config = getSupabaseConfigReport();
+  console.error("[Supabase config]", config);
+  sendJson(res, 503, { error: "Supabase nao configurado corretamente.", config });
   return false;
 }
 
 function requirePublicSupabase(res) {
   if (isPublicSupabaseConfigured()) return true;
-  sendJson(res, 503, { error: "Supabase publico nao configurado." });
+  const config = getSupabaseConfigReport();
+  console.error("[Supabase public config]", config);
+  sendJson(res, 503, { error: "Supabase publico nao configurado corretamente.", config });
   return false;
 }
 
@@ -127,8 +134,22 @@ function requireAdmin(req, res) {
   return null;
 }
 
+function supabaseOperation(options = {}) {
+  const method = options.method || "GET";
+  const prefer = String(options.headers?.Prefer || options.headers?.prefer || "");
+  if (prefer.includes("resolution=")) return "upsert";
+  if (method === "POST") return "insert";
+  if (method === "PUT" || method === "PATCH") return "update";
+  if (method === "DELETE") return "delete";
+  return "select";
+}
+
 async function supabaseRest(path, options = {}) {
   const url = `${supabaseConfig.url}/rest/v1/${path}`;
+  const operation = supabaseOperation(options);
+  const keyType = "service role";
+  console.info("[Supabase request]", { keyType, operation, path });
+
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -143,7 +164,22 @@ async function supabaseRest(path, options = {}) {
   const payload = text ? JSON.parse(text) : null;
   if (!response.ok) {
     const message = payload?.message || payload?.error || "Erro no Supabase.";
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    error.statusText = response.statusText;
+    error.supabase = payload;
+    error.request = { keyType, operation, method: options.method || "GET", path };
+    console.error("[Supabase error]", {
+      keyType,
+      operation,
+      status: response.status,
+      statusText: response.statusText,
+      method: options.method || "GET",
+      path,
+      payload,
+      config: getSupabaseConfigReport(),
+    });
+    throw error;
   }
   return payload;
 }
@@ -165,7 +201,20 @@ async function supabasePublicRest(path, options = {}) {
   const payload = text ? JSON.parse(text) : null;
   if (!response.ok) {
     const message = payload?.message || payload?.error || "Erro no Supabase.";
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    error.statusText = response.statusText;
+    error.supabase = payload;
+    error.request = { method: options.method || "GET", path };
+    console.error("[Supabase public error]", {
+      status: response.status,
+      statusText: response.statusText,
+      method: options.method || "GET",
+      path,
+      payload,
+      config: getSupabaseConfigReport(),
+    });
+    throw error;
   }
   return payload;
 }
@@ -215,6 +264,7 @@ module.exports = {
   requireSupabase,
   sendJson,
   supabaseConfig,
+  getSupabaseConfigReport,
   supabasePublicRest,
   supabaseRest,
 };
