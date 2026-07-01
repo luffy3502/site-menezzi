@@ -6,14 +6,30 @@ const {
   supabaseConfig,
 } = require("./_utils");
 
-function safeFileName(fileName) {
-  const clean = String(fileName || "produto.jpg")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9.]+/g, "-")
-    .replace(/^-|-$/g, "");
-  return clean || "produto.jpg";
+const crypto = require("crypto");
+
+const STORAGE_PREFIX = "products";
+const CONTENT_TYPE_EXTENSIONS = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+function extensionFromContentType(contentType) {
+  return CONTENT_TYPE_EXTENSIONS[String(contentType || "").toLowerCase()] || "webp";
+}
+
+function buildObjectPath(contentType) {
+  const extension = extensionFromContentType(contentType);
+  return `${STORAGE_PREFIX}/${crypto.randomUUID()}.${extension}`;
+}
+
+function encodeObjectPath(objectPath) {
+  return objectPath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
 }
 
 module.exports = async function handler(req, res) {
@@ -24,13 +40,17 @@ module.exports = async function handler(req, res) {
   if (!requireAdmin(req, res) || !requireSupabase(res)) return;
 
   try {
-    const { fileName, contentType, dataUrl, base64 } = await readJson(req);
+    const { contentType, dataUrl, base64 } = await readJson(req);
     const rawBase64 = base64 || String(dataUrl || "").split(",").pop();
     if (!rawBase64) return sendJson(res, 400, { error: "Arquivo obrigatorio." });
+    if (!Object.prototype.hasOwnProperty.call(CONTENT_TYPE_EXTENSIONS, String(contentType || "").toLowerCase())) {
+      return sendJson(res, 400, { error: "Formato invalido. Use JPG, PNG ou WebP." });
+    }
 
     const buffer = Buffer.from(rawBase64, "base64");
-    const objectPath = `${Date.now()}-${safeFileName(fileName)}`;
-    const uploadUrl = `${supabaseConfig.url}/storage/v1/object/${supabaseConfig.productImagesBucket}/${objectPath}`;
+    const objectPath = buildObjectPath(contentType);
+    const encodedObjectPath = encodeObjectPath(objectPath);
+    const uploadUrl = `${supabaseConfig.url}/storage/v1/object/${supabaseConfig.productImagesBucket}/${encodedObjectPath}`;
 
     const upload = await fetch(uploadUrl, {
       method: "POST",
@@ -48,7 +68,7 @@ module.exports = async function handler(req, res) {
       throw new Error(payload || "Nao foi possivel enviar a imagem.");
     }
 
-    const publicUrl = `${supabaseConfig.url}/storage/v1/object/public/${supabaseConfig.productImagesBucket}/${objectPath}`;
+    const publicUrl = `${supabaseConfig.url}/storage/v1/object/public/${supabaseConfig.productImagesBucket}/${encodedObjectPath}`;
     return sendJson(res, 201, { url: publicUrl, path: objectPath });
   } catch (error) {
     return sendJson(res, 500, { error: error.message });
