@@ -3138,9 +3138,14 @@ noscript {
 }
 
 .whatsapp-float {
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
   width: auto;
   min-width: 58px;
+  height: 58px;
   padding: 0 18px;
   border-radius: 999px;
   color: #ffffff;
@@ -3162,8 +3167,10 @@ noscript {
   z-index: 1;
   color: #ffffff;
   font-size: 0.8rem;
+  line-height: 1;
   opacity: 1;
   visibility: visible;
+  white-space: nowrap;
 }
 
 .category-admin-item {
