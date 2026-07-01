@@ -242,13 +242,26 @@ function productImagesFromRecord(product, primaryImage) {
   }
 
   addImage(primaryImage, 0, true);
-  if (Array.isArray(product.images)) {
-    const primaryRecord = product.images.find((item) => item?.primary || item?.isPrimary || item?.is_primary);
-    if (primaryRecord) addImage(primaryRecord, 0, true);
-    product.images.forEach((item, index) => addImage(item, index + 1, false));
-  }
   const additionalImages = Array.isArray(product.additional_images) ? product.additional_images : [];
   additionalImages.forEach((item, index) => addImage(item, index + 100, false));
+  const tableImages = Array.isArray(product.productImages)
+    ? product.productImages
+    : Array.isArray(product.product_images)
+      ? product.product_images
+      : Array.isArray(product.images)
+        ? product.images
+        : [];
+  if (Array.isArray(tableImages)) {
+    const sortedImages = [...tableImages].sort((a, b) => {
+      const primaryA = a?.primary ?? a?.isPrimary ?? a?.is_primary ? -1 : 0;
+      const primaryB = b?.primary ?? b?.isPrimary ?? b?.is_primary ? -1 : 0;
+      if (primaryA !== primaryB) return primaryA - primaryB;
+      return Number(a?.sortOrder ?? a?.sort_order ?? 0) - Number(b?.sortOrder ?? b?.sort_order ?? 0);
+    });
+    const primaryRecord = sortedImages.find((item) => item?.primary || item?.isPrimary || item?.is_primary);
+    if (primaryRecord) addImage(primaryRecord, 0, true);
+    sortedImages.forEach((item, index) => addImage(item, index + 1, false));
+  }
 
   return images.length
     ? images.map((item, index) => ({ ...item, sortOrder: index + 1, primary: index === 0 }))
@@ -266,7 +279,7 @@ function productImagesFromRecord(product, primaryImage) {
 function productFromDb(product) {
   const offerType = product.offer_type || (product.is_offer ? "oferta_semana" : "sem_oferta");
   const primaryImage = product.image_url || "assets/logo-menezzi.jpg";
-  const additionalImages = Array.isArray(product.additional_images) ? product.additional_images.filter(Boolean) : [];
+  const additionalImages = Array.isArray(product.additional_images) ? product.additional_images.map(imageValue).filter(Boolean) : [];
   const images = productImagesFromRecord(product, primaryImage);
   const variants = Array.isArray(product.variants)
     ? product.variants.map((variant, index) => ({

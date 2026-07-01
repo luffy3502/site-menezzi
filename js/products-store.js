@@ -36,17 +36,30 @@ function uniqueProductImages(product, primaryImage) {
   }
 
   addImage(primaryImage, 0, true);
-  if (Array.isArray(product.images)) {
-    const primaryRecord = product.images.find((item) => item?.primary || item?.isPrimary || item?.is_primary);
-    if (primaryRecord) addImage(primaryRecord, 0, true);
-    product.images.forEach((item, index) => addImage(item, index + 1, false));
-  }
+  const tableImages = Array.isArray(product.productImages)
+    ? product.productImages
+    : Array.isArray(product.product_images)
+      ? product.product_images
+      : Array.isArray(product.images)
+        ? product.images
+        : [];
   const additionalImages = Array.isArray(product.additionalImages)
     ? product.additionalImages
     : Array.isArray(product.additional_images)
       ? product.additional_images
       : [];
   additionalImages.forEach((item, index) => addImage(item, index + 100, false));
+  if (Array.isArray(tableImages)) {
+    const sortedImages = [...tableImages].sort((a, b) => {
+      const primaryA = a?.primary ?? a?.isPrimary ?? a?.is_primary ? -1 : 0;
+      const primaryB = b?.primary ?? b?.isPrimary ?? b?.is_primary ? -1 : 0;
+      if (primaryA !== primaryB) return primaryA - primaryB;
+      return Number(a?.sortOrder ?? a?.sort_order ?? 0) - Number(b?.sortOrder ?? b?.sort_order ?? 0);
+    });
+    const primaryRecord = sortedImages.find((item) => item?.primary || item?.isPrimary || item?.is_primary);
+    if (primaryRecord) addImage(primaryRecord, 0, true);
+    sortedImages.forEach((item, index) => addImage(item, index + 1, false));
+  }
 
   return images.length
     ? images.map((item, index) => ({ ...item, sortOrder: index + 1, primary: index === 0 }))
@@ -89,7 +102,8 @@ function normalizeProduct(product) {
     image: primaryImage,
     imageUrl: primaryImage,
     images,
-    additionalImages,
+    additionalImages: additionalImages.map(imageValue).filter(Boolean),
+    productImages: images,
     variants,
     offerType,
     weeklyOffer: getOfferType({ offerType }) !== "sem_oferta",

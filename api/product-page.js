@@ -65,11 +65,6 @@ function productGalleryImages(req, product) {
   }
 
   addImage(product.image || product.imageUrl || product.image_url);
-  if (Array.isArray(product.images)) {
-    const primaryRecord = product.images.find((item) => item?.primary || item?.isPrimary || item?.is_primary);
-    if (primaryRecord) addImage(primaryRecord);
-    product.images.forEach(addImage);
-  }
   const additionalImages = Array.isArray(product.additionalImages)
     ? product.additionalImages
     : Array.isArray(product.additional_images)
@@ -77,8 +72,60 @@ function productGalleryImages(req, product) {
       : [];
   additionalImages.forEach(addImage);
 
+  const tableImages = Array.isArray(product.productImages)
+    ? product.productImages
+    : Array.isArray(product.product_images)
+      ? product.product_images
+      : Array.isArray(product.images)
+        ? product.images
+        : [];
+  [...tableImages]
+    .sort((a, b) => {
+      const primaryA = a?.primary ?? a?.isPrimary ?? a?.is_primary ? -1 : 0;
+      const primaryB = b?.primary ?? b?.isPrimary ?? b?.is_primary ? -1 : 0;
+      if (primaryA !== primaryB) return primaryA - primaryB;
+      return Number(a?.sortOrder ?? a?.sort_order ?? 0) - Number(b?.sortOrder ?? b?.sort_order ?? 0);
+    })
+    .forEach(addImage);
+
   if (!images.length) addImage("assets/logo-menezzi.jpg");
   return images;
+}
+
+function galleryArrow(direction) {
+  const path = direction === "prev" ? "M15 18l-6-6 6-6" : "M9 6l6 6-6 6";
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}" /></svg>`;
+}
+
+function renderProductGallery(product, images) {
+  const hasGallery = images.length > 1;
+  const alt = escapeHtml(product.name);
+
+  return `
+    <div class="product-gallery" data-product-gallery>
+      <div class="product-gallery-frame" data-gallery-frame>
+        ${hasGallery ? `<button class="product-gallery-arrow prev" type="button" aria-label="Foto anterior" data-gallery-prev>${galleryArrow("prev")}</button>` : ""}
+        <img src="${escapeHtml(images[0])}" alt="${alt}" data-gallery-main data-gallery-index="0" draggable="false" />
+        ${hasGallery ? `<button class="product-gallery-arrow next" type="button" aria-label="Proxima foto" data-gallery-next>${galleryArrow("next")}</button>` : ""}
+        ${hasGallery ? `<span class="product-gallery-counter" data-gallery-counter>1/${images.length}</span>` : ""}
+      </div>
+      ${
+        hasGallery
+          ? `<div class="product-detail-thumbs" data-gallery-thumbs>
+              ${images
+                .map(
+                  (item, index) => `
+                    <button class="${index === 0 ? "is-active" : ""}" type="button" data-gallery-thumb data-gallery-image="${escapeHtml(item)}" data-index="${index}" aria-label="Ver foto ${index + 1}">
+                      <img src="${escapeHtml(item)}" alt="${alt}" loading="lazy" draggable="false" />
+                    </button>
+                  `
+                )
+                .join("")}
+            </div>`
+          : ""
+      }
+    </div>
+  `;
 }
 
 function isMissingProductImagesTable(error) {
@@ -197,7 +244,6 @@ function renderProduct(req, product, related) {
   const url = absoluteUrl(req, productPath(product));
   const image = imageUrl(req, product.image);
   const images = productGalleryImages(req, product);
-  const hasGallery = images.length > 1;
   const variants = Array.isArray(product.variants) ? product.variants.filter((variant) => variant.colorName && variant.image) : [];
   const offerLabel = OFFER_LABELS[product.offerType] || "Oferta";
   const description = product.description || "Produto selecionado da MENEZZI.";
@@ -232,27 +278,7 @@ function renderProduct(req, product, related) {
     <main class="product-detail-shell">
       <article class="product-detail">
         <div class="product-detail-media">
-          <div class="product-gallery-frame" data-product-gallery-frame>
-            ${hasGallery ? '<button class="product-gallery-arrow prev" type="button" aria-label="Foto anterior" data-product-gallery-prev>&lsaquo;</button>' : ""}
-            <img src="${escapeHtml(images[0])}" alt="${escapeHtml(product.name)}" data-product-main-image data-gallery-index="0" />
-            ${hasGallery ? '<button class="product-gallery-arrow next" type="button" aria-label="Proxima foto" data-product-gallery-next>&rsaquo;</button>' : ""}
-            ${hasGallery ? `<span class="product-gallery-counter" data-product-gallery-counter>1/${images.length}</span>` : ""}
-          </div>
-          ${
-            hasGallery
-              ? `<div class="product-detail-thumbs">
-                  ${images
-                    .map(
-                      (item, index) => `
-                        <button class="${index === 0 ? "is-active" : ""}" type="button" data-product-thumb="${escapeHtml(item)}" data-index="${index}" aria-label="Ver foto ${index + 1}">
-                          <img src="${escapeHtml(item)}" alt="${escapeHtml(product.name)}" loading="lazy" />
-                        </button>
-                      `
-                    )
-                    .join("")}
-                </div>`
-              : ""
-          }
+          ${renderProductGallery(product, images)}
           ${
             variants.length
               ? `<div class="product-colors"><span>Cores</span>${variants
@@ -310,43 +336,13 @@ function renderProduct(req, product, related) {
         await navigator.clipboard?.writeText(${JSON.stringify(url)});
         event.currentTarget.textContent = "Link copiado";
       });
-      document.querySelectorAll("[data-product-thumb]").forEach((button) => {
-        button.addEventListener("click", () => setProductImage(button.dataset.productThumb, Number(button.dataset.index || 0)));
-      });
-      function setProductImage(src, index = -1) {
-        const main = document.querySelector("[data-product-main-image]");
-        if (!main || !src) return;
-        main.src = src;
-        if (index >= 0) main.dataset.galleryIndex = String(index);
-        const counter = document.querySelector("[data-product-gallery-counter]");
-        const total = document.querySelectorAll("[data-product-thumb]").length;
-        if (counter && total) counter.textContent = (Number(main.dataset.galleryIndex || 0) + 1) + "/" + total;
-        document.querySelectorAll("[data-product-thumb]").forEach((item, itemIndex) => {
-          item.classList.toggle("is-active", itemIndex === Number(main.dataset.galleryIndex || 0));
-        });
-      }
-      function moveProductImage(direction) {
-        const main = document.querySelector("[data-product-main-image]");
-        const thumbs = [...document.querySelectorAll("[data-product-thumb]")];
-        if (!main || !thumbs.length) return;
-        const current = Number(main.dataset.galleryIndex || 0);
-        const next = (current + direction + thumbs.length) % thumbs.length;
-        setProductImage(thumbs[next].dataset.productThumb, next);
-      }
-      document.querySelector("[data-product-gallery-prev]")?.addEventListener("click", () => moveProductImage(-1));
-      document.querySelector("[data-product-gallery-next]")?.addEventListener("click", () => moveProductImage(1));
+    </script>
+    <script type="module">
+      import { initializeProductGalleries } from "/js/components/ProductGallery.js";
+      const [gallery] = initializeProductGalleries();
       document.querySelectorAll("[data-product-color-image]").forEach((button) => {
-        button.addEventListener("click", () => setProductImage(button.dataset.productColorImage));
+        button.addEventListener("click", () => gallery?.setImage(button.dataset.productColorImage));
       });
-      const frame = document.querySelector("[data-product-gallery-frame]");
-      let touchStartX = 0;
-      frame?.addEventListener("touchstart", (event) => {
-        touchStartX = event.changedTouches[0].clientX;
-      }, { passive: true });
-      frame?.addEventListener("touchend", (event) => {
-        const delta = event.changedTouches[0].clientX - touchStartX;
-        if (Math.abs(delta) > 42) moveProductImage(delta > 0 ? -1 : 1);
-      }, { passive: true });
     </script>
   </body>
 </html>`;

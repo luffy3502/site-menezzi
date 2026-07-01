@@ -1,4 +1,4 @@
-const CACHE_NAME = "menezzi-site-v9";
+const CACHE_NAME = "menezzi-site-v10";
 
 const FILES_TO_CACHE = [
   "./",
@@ -14,6 +14,7 @@ const FILES_TO_CACHE = [
   "./js/admin-login.js",
   "./js/admin-session.js",
   "./js/components/ProductCard.js",
+  "./js/components/ProductGallery.js",
   "./js/components/ProductModal.js",
   "./js/components/ProductGrid.js",
   "./js/components/CategoryFilter.js",

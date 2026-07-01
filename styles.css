@@ -1981,17 +1981,39 @@ noscript {
   box-shadow: var(--shadow);
 }
 
+.product-gallery {
+  width: 100%;
+}
+
 .product-gallery-frame {
   position: relative;
   overflow: hidden;
   touch-action: pan-y;
+  background: var(--surface-strong);
 }
 
 .product-gallery-frame > img,
 .product-detail-media > img {
+  display: block;
   width: 100%;
   aspect-ratio: 4 / 5;
   object-fit: cover;
+  transform: translateX(0) scale(1);
+  transition: opacity 260ms ease, transform 360ms cubic-bezier(0.22, 1, 0.36, 1), filter 260ms ease;
+  will-change: opacity, transform;
+}
+
+.product-gallery.is-switching .product-gallery-frame > img {
+  opacity: 0.25;
+  filter: saturate(0.94);
+}
+
+.product-gallery.is-switching.is-moving-next .product-gallery-frame > img {
+  transform: translateX(-12px) scale(1.01);
+}
+
+.product-gallery.is-switching.is-moving-prev .product-gallery-frame > img {
+  transform: translateX(12px) scale(1.01);
 }
 
 .product-gallery-arrow {
@@ -1999,31 +2021,51 @@ noscript {
   top: 50%;
   z-index: 2;
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.78);
   border-radius: 50%;
-  background: rgba(16, 16, 16, 0.54);
-  color: white;
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+  color: var(--ink);
   cursor: pointer;
-  font-size: 1.8rem;
   line-height: 1;
+  opacity: 0.92;
   transform: translateY(-50%);
-  transition: background 180ms ease, transform 180ms ease;
+  transition: opacity 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.product-gallery-arrow svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.1;
+  pointer-events: none;
 }
 
 .product-gallery-arrow:hover {
-  background: var(--ink);
-  transform: translateY(-50%) scale(1.04);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+  opacity: 1;
+  transform: translateY(-50%) scale(1.06);
+}
+
+.product-gallery-arrow:active {
+  transform: translateY(-50%) scale(0.96);
 }
 
 .product-gallery-arrow.prev {
-  left: 12px;
+  left: 14px;
 }
 
 .product-gallery-arrow.next {
-  right: 12px;
+  right: 14px;
 }
 
 .product-gallery-counter {
@@ -2031,52 +2073,82 @@ noscript {
   right: 14px;
   bottom: 14px;
   z-index: 2;
-  min-width: 48px;
-  padding: 6px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  min-width: 44px;
+  padding: 5px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 999px;
-  background: rgba(16, 16, 16, 0.58);
-  color: white;
-  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+  color: var(--ink);
+  font-size: 0.72rem;
   font-weight: 900;
   text-align: center;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
 }
 
 .product-detail-thumbs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 9px;
+  overflow-x: auto;
   padding: 12px;
+  scrollbar-width: thin;
 }
 
 .product-detail-thumbs button {
+  flex: 0 0 auto;
   padding: 0;
-  border: 2px solid transparent;
-  border-radius: 8px;
+  border: 1px solid rgba(16, 16, 16, 0.1);
+  border-radius: 7px;
   background: transparent;
   cursor: pointer;
+  opacity: 0.64;
+  transition: border-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease, transform 180ms ease;
 }
 
 .product-detail-thumbs button.is-active {
-  border-color: var(--gold);
+  border-color: var(--gold-dark);
+  box-shadow: 0 0 0 2px rgba(198, 161, 51, 0.22);
+  opacity: 1;
+}
+
+.product-detail-thumbs button:hover {
+  opacity: 1;
+  transform: translateY(-1px);
 }
 
 .product-detail-thumbs img {
-  width: 72px;
-  height: 86px;
-  border-radius: 8px;
+  display: block;
+  width: 58px;
+  height: 70px;
+  border-radius: 6px;
   object-fit: cover;
 }
 
 @media (max-width: 640px) {
   .product-detail-thumbs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: thin;
+    padding: 10px;
   }
 
-  .product-detail-thumbs button {
-    flex: 0 0 auto;
+  .product-gallery-arrow {
+    width: 30px;
+    height: 30px;
+  }
+
+  .product-gallery-arrow svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .product-gallery-counter {
+    right: 10px;
+    bottom: 10px;
+    font-size: 0.68rem;
+  }
+
+  .product-detail-thumbs img {
+    width: 52px;
+    height: 64px;
   }
 }
 
