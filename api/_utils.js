@@ -233,6 +233,15 @@ function productFromDb(product) {
           primary: true,
         },
       ];
+  const variants = Array.isArray(product.variants)
+    ? product.variants.map((variant, index) => ({
+        id: variant.id || `${product.id || "product"}-variant-${index}`,
+        colorName: variant.colorName || variant.color_name || "",
+        image: variant.image || variant.imageUrl || variant.image_url || "",
+        imageUrl: variant.imageUrl || variant.image || variant.image_url || "",
+        sortOrder: Number(variant.sortOrder ?? variant.sort_order ?? index + 1),
+      }))
+    : [];
   return {
     id: product.id,
     name: product.name,
@@ -242,6 +251,7 @@ function productFromDb(product) {
     image: primaryImage,
     imageUrl: primaryImage,
     images,
+    variants,
     offerType,
     weeklyOffer: offerType !== "sem_oferta",
     available: Boolean(product.is_available),

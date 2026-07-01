@@ -72,6 +72,9 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
   const extraImageFiles = root.querySelector("[data-product-extra-files]");
   const imagePreview = root.querySelector("[data-image-preview]");
   const productImagesAdmin = root.querySelector("[data-product-images-admin]");
+  const productColorName = root.querySelector("[data-product-color-name]");
+  const productColorFile = root.querySelector("[data-product-color-file]");
+  const productColorsAdmin = root.querySelector("[data-product-colors-admin]");
   const submitButton = form.querySelector('button[type="submit"]');
   const categoryModal = root.ownerDocument.querySelector("[data-category-modal]");
   const categoryForm = root.ownerDocument.querySelector("[data-category-form]");
@@ -104,6 +107,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
   let instagram = initialContent.instagram || [];
   let settings = initialContent.settings || {};
   let productExtraImages = [];
+  let productVariants = [];
   let saving = false;
   let uploading = false;
 
@@ -164,6 +168,19 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     }, []);
   }
 
+  function normalizeProductVariants(product) {
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+    return variants
+      .map((item, index) => ({
+        id: item.id || `${product?.id || "new"}-variant-${index}`,
+        colorName: item.colorName || item.color_name || item.name || "",
+        image: item.image || item.imageUrl || "",
+        imageUrl: item.imageUrl || item.image || "",
+        sortOrder: Number(item.sortOrder || index + 1),
+      }))
+      .filter((item) => item.colorName && item.image);
+  }
+
   function allProductImages() {
     const mainImage = form.elements.image.value;
     const images = [];
@@ -185,6 +202,30 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
       });
     });
     return images;
+  }
+
+  function renderProductColorsAdmin() {
+    if (!productColorsAdmin) return;
+    productColorsAdmin.innerHTML = productVariants.length
+      ? productVariants
+          .map(
+            (item, index) => `
+              <article class="product-extra-image product-color-admin" draggable="true" data-product-color="${item.image}">
+                <img src="${adminImageSrc(item.image)}" alt="${item.colorName}" />
+                <div>
+                  <strong>${item.colorName}</strong>
+                  <div class="admin-actions">
+                    <button class="button button-light" type="button" data-product-color-image="${item.image}">Usar imagem</button>
+                    <button class="button button-light" type="button" data-product-color-move="${item.image}" data-direction="-1" ${index === 0 ? "disabled" : ""}>Subir</button>
+                    <button class="button button-light" type="button" data-product-color-move="${item.image}" data-direction="1" ${index === productVariants.length - 1 ? "disabled" : ""}>Descer</button>
+                    <button class="button danger-button" type="button" data-product-color-remove="${item.image}">Remover</button>
+                  </div>
+                </div>
+              </article>
+            `
+          )
+          .join("")
+      : '<p class="admin-note">Variações de cor são opcionais.</p>';
   }
 
   function renderProductImagesAdmin() {
@@ -223,6 +264,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
       image,
       imageUrl: image,
       images: allProductImages(),
+      variants: productVariants.map((variant, index) => ({ ...variant, sortOrder: index + 1 })),
       description: data.get("description").trim(),
       offerType,
       weeklyOffer: offerType !== "sem_oferta",
@@ -270,6 +312,9 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     availableInput.value = "true";
     offerInput.value = "sem_oferta";
     productExtraImages = [];
+    productVariants = [];
+    if (productColorName) productColorName.value = "";
+    if (productColorFile) productColorFile.value = "";
     productCategorySelect.value = categoryChoices()[0] || DEFAULT_CATEGORIES[0];
     imagePreview.src = FALLBACK_IMAGE;
     formTitle.textContent = "Novo produto";
@@ -278,6 +323,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     setMessage("");
     setUploadMessage("");
     renderProductImagesAdmin();
+    renderProductColorsAdmin();
   }
 
   function editProduct(productId) {
@@ -294,6 +340,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     availableInput.value = String(Boolean(product.available));
     offerInput.value = getOfferType(product);
     productExtraImages = normalizeProductImages(product);
+    productVariants = normalizeProductVariants(product);
     imagePreview.src = adminImageSrc(product.image);
     formTitle.textContent = "Editar produto";
     renderChoiceButtons();
@@ -301,6 +348,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     setMessage("Produto carregado para edicao.");
     setUploadMessage("");
     renderProductImagesAdmin();
+    renderProductColorsAdmin();
     form.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -701,6 +749,10 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     const productExtraPrimary = event.target.closest("[data-product-extra-primary]");
     const productExtraRemove = event.target.closest("[data-product-extra-remove]");
     const productExtraMove = event.target.closest("[data-product-extra-move]");
+    const addProductColor = event.target.closest("[data-add-product-color]");
+    const productColorImage = event.target.closest("[data-product-color-image]");
+    const productColorRemove = event.target.closest("[data-product-color-remove]");
+    const productColorMove = event.target.closest("[data-product-color-move]");
     const focusProduct = event.target.closest("[data-focus-product-form]");
     const available = event.target.closest("[data-set-available]");
     const offer = event.target.closest("[data-set-offer]");
@@ -745,6 +797,40 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
           [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
           productExtraImages = next;
           renderProductImagesAdmin();
+        }
+      }
+      if (addProductColor) {
+        const colorName = productColorName.value.trim();
+        const file = productColorFile.files[0];
+        if (!colorName || !file) {
+          setMessage("Informe o nome da cor e escolha uma imagem.", true);
+          return;
+        }
+        setUploadMessage("Enviando imagem da cor...");
+        const url = await uploadProductImage(file);
+        productVariants = [...productVariants, { id: `variant-${Date.now()}`, colorName, image: url, imageUrl: url }];
+        productColorName.value = "";
+        productColorFile.value = "";
+        renderProductColorsAdmin();
+        setUploadMessage("Variação de cor adicionada.");
+      }
+      if (productColorImage) {
+        const image = productColorImage.dataset.productColorImage;
+        form.elements.image.value = image;
+        imagePreview.src = adminImageSrc(image);
+      }
+      if (productColorRemove) {
+        productVariants = productVariants.filter((item) => item.image !== productColorRemove.dataset.productColorRemove);
+        renderProductColorsAdmin();
+      }
+      if (productColorMove) {
+        const index = productVariants.findIndex((item) => item.image === productColorMove.dataset.productColorMove);
+        const targetIndex = index + Number(productColorMove.dataset.direction);
+        if (index >= 0 && targetIndex >= 0 && targetIndex < productVariants.length) {
+          const next = [...productVariants];
+          [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+          productVariants = next;
+          renderProductColorsAdmin();
         }
       }
       if (available) {
@@ -1178,6 +1264,32 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     productExtraImages = next;
     draggedProductImage = "";
     renderProductImagesAdmin();
+  });
+
+  let draggedProductColor = "";
+  productColorsAdmin.addEventListener("dragstart", (event) => {
+    const card = event.target.closest("[data-product-color]");
+    if (!card) return;
+    draggedProductColor = card.dataset.productColor;
+    event.dataTransfer.effectAllowed = "move";
+  });
+  productColorsAdmin.addEventListener("dragover", (event) => {
+    if (event.target.closest("[data-product-color]")) event.preventDefault();
+  });
+  productColorsAdmin.addEventListener("drop", (event) => {
+    const card = event.target.closest("[data-product-color]");
+    const targetImage = card?.dataset.productColor;
+    if (!draggedProductColor || !targetImage || draggedProductColor === targetImage) return;
+    event.preventDefault();
+    const next = [...productVariants];
+    const from = next.findIndex((item) => item.image === draggedProductColor);
+    const to = next.findIndex((item) => item.image === targetImage);
+    if (from < 0 || to < 0) return;
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    productVariants = next;
+    draggedProductColor = "";
+    renderProductColorsAdmin();
   });
 
   render();

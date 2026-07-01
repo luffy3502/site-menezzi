@@ -51,6 +51,11 @@ function isMissingProductImagesTable(error) {
   return /product_images/i.test(message) && /relation|schema cache|does not exist|could not find/i.test(message);
 }
 
+function isMissingProductVariantsTable(error) {
+  const message = `${error.message || ""} ${error.supabase?.message || ""} ${error.supabase?.details || ""}`;
+  return /product_variants|product_colors/i.test(message) && /relation|schema cache|does not exist|could not find/i.test(message);
+}
+
 function productPath(product) {
   return `/produto/${product.id}-${slugify(product.name)}`;
 }
@@ -159,6 +164,7 @@ function renderProduct(req, product, related) {
   const images = (Array.isArray(product.images) && product.images.length ? product.images : [{ image }]).map((item) =>
     imageUrl(req, item.image || item.imageUrl || image)
   );
+  const variants = Array.isArray(product.variants) ? product.variants.filter((variant) => variant.colorName && variant.image) : [];
   const offerLabel = OFFER_LABELS[product.offerType] || "Oferta";
   const description = product.description || "Produto selecionado da MENEZZI.";
   const relatedCards = related
@@ -192,7 +198,11 @@ function renderProduct(req, product, related) {
     <main class="product-detail-shell">
       <article class="product-detail">
         <div class="product-detail-media">
-          <img src="${escapeHtml(images[0])}" alt="${escapeHtml(product.name)}" data-product-main-image />
+          <div class="product-gallery-frame" data-product-gallery-frame>
+            <button class="product-gallery-arrow prev" type="button" aria-label="Foto anterior" data-product-gallery-prev>‹</button>
+            <img src="${escapeHtml(images[0])}" alt="${escapeHtml(product.name)}" data-product-main-image data-gallery-index="0" />
+            <button class="product-gallery-arrow next" type="button" aria-label="Proxima foto" data-product-gallery-next>›</button>
+          </div>
           <div class="product-detail-thumbs">
             ${images
               .map(
@@ -204,6 +214,20 @@ function renderProduct(req, product, related) {
               )
               .join("")}
           </div>
+          ${
+            variants.length
+              ? `<div class="product-colors"><span>Cores</span>${variants
+                  .map(
+                    (variant) => `
+                      <button type="button" data-product-color-image="${escapeHtml(imageUrl(req, variant.image))}" title="${escapeHtml(variant.colorName)}">
+                        <img src="${escapeHtml(imageUrl(req, variant.image))}" alt="${escapeHtml(variant.colorName)}" />
+                        <strong>${escapeHtml(variant.colorName)}</strong>
+                      </button>
+                    `
+                  )
+                  .join("")}</div>`
+              : ""
+          }
         </div>
         <div class="product-detail-info">
           <div class="modal-labels">
@@ -248,12 +272,39 @@ function renderProduct(req, product, related) {
         event.currentTarget.textContent = "Link copiado";
       });
       document.querySelectorAll("[data-product-thumb]").forEach((button) => {
-        button.addEventListener("click", () => {
-          const main = document.querySelector("[data-product-main-image]");
-          if (main) main.src = button.dataset.productThumb;
-          document.querySelectorAll("[data-product-thumb]").forEach((item) => item.classList.toggle("is-active", item === button));
-        });
+        button.addEventListener("click", () => setProductImage(button.dataset.productThumb, Number(button.dataset.index || 0)));
       });
+      function setProductImage(src, index = -1) {
+        const main = document.querySelector("[data-product-main-image]");
+        if (!main || !src) return;
+        main.src = src;
+        if (index >= 0) main.dataset.galleryIndex = String(index);
+        document.querySelectorAll("[data-product-thumb]").forEach((item, itemIndex) => {
+          item.classList.toggle("is-active", itemIndex === Number(main.dataset.galleryIndex || 0));
+        });
+      }
+      function moveProductImage(direction) {
+        const main = document.querySelector("[data-product-main-image]");
+        const thumbs = [...document.querySelectorAll("[data-product-thumb]")];
+        if (!main || !thumbs.length) return;
+        const current = Number(main.dataset.galleryIndex || 0);
+        const next = (current + direction + thumbs.length) % thumbs.length;
+        setProductImage(thumbs[next].dataset.productThumb, next);
+      }
+      document.querySelector("[data-product-gallery-prev]")?.addEventListener("click", () => moveProductImage(-1));
+      document.querySelector("[data-product-gallery-next]")?.addEventListener("click", () => moveProductImage(1));
+      document.querySelectorAll("[data-product-color-image]").forEach((button) => {
+        button.addEventListener("click", () => setProductImage(button.dataset.productColorImage));
+      });
+      const frame = document.querySelector("[data-product-gallery-frame]");
+      let touchStartX = 0;
+      frame?.addEventListener("touchstart", (event) => {
+        touchStartX = event.changedTouches[0].clientX;
+      }, { passive: true });
+      frame?.addEventListener("touchend", (event) => {
+        const delta = event.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(delta) > 42) moveProductImage(delta > 0 ? -1 : 1);
+      }, { passive: true });
     </script>
   </body>
 </html>`;
@@ -275,10 +326,14 @@ async function findProductByKey(key) {
 async function attachProductImages(product) {
   if (!product?.id) return product;
   try {
-    const rows = await supabaseRest(
-      `product_images?select=*&product_id=eq.${encodeURIComponent(product.id)}&order=sort_order.asc,created_at.asc`
-    );
-    if (!rows.length) return product;
+    const [rows, variantRows] = await Promise.all([
+      supabaseRest(`product_images?select=*&product_id=eq.${encodeURIComponent(product.id)}&order=sort_order.asc,created_at.asc`),
+      supabaseRest(`product_variants?select=*&product_id=eq.${encodeURIComponent(product.id)}&order=sort_order.asc,created_at.asc`).catch((error) => {
+        if (isMissingProductVariantsTable(error)) return [];
+        throw error;
+      }),
+    ]);
+    if (!rows.length && !variantRows.length) return product;
     const images = rows.map((row) => ({
       id: row.id,
       image: row.image_url,
@@ -287,7 +342,14 @@ async function attachProductImages(product) {
       primary: row.is_primary ?? false,
     }));
     const primary = images.find((item) => item.primary) || images[0];
-    return { ...product, image: primary?.image || product.image, imageUrl: primary?.image || product.image, images };
+    const variants = variantRows.map((row) => ({
+      id: row.id,
+      colorName: row.color_name || "",
+      image: row.image_url || "",
+      imageUrl: row.image_url || "",
+      sortOrder: Number(row.sort_order || 0),
+    }));
+    return { ...product, image: primary?.image || product.image, imageUrl: primary?.image || product.image, images: images.length ? images : product.images, variants };
   } catch (error) {
     if (isMissingProductImagesTable(error)) return product;
     throw error;

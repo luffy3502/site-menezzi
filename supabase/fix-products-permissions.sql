@@ -37,6 +37,18 @@ create table if not exists public.product_images (
 create index if not exists product_images_product_sort_idx
   on public.product_images (product_id, sort_order, created_at);
 
+create table if not exists public.product_variants (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  color_name text not null default '',
+  image_url text not null default '',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists product_variants_product_sort_idx
+  on public.product_variants (product_id, sort_order, created_at);
+
 insert into public.product_images (product_id, image_url, sort_order, is_primary)
 select p.id, p.image_url, 1, true
 from public.products p
@@ -76,6 +88,8 @@ alter table public.products enable row level security;
 alter table public.products no force row level security;
 alter table public.product_images enable row level security;
 alter table public.product_images no force row level security;
+alter table public.product_variants enable row level security;
+alter table public.product_variants no force row level security;
 
 do $$
 declare
@@ -97,6 +111,9 @@ revoke all on public.products from service_role;
 revoke all on public.product_images from anon;
 revoke all on public.product_images from authenticated;
 revoke all on public.product_images from service_role;
+revoke all on public.product_variants from anon;
+revoke all on public.product_variants from authenticated;
+revoke all on public.product_variants from service_role;
 
 grant usage on schema public to anon, authenticated, service_role;
 grant select on public.products to anon, authenticated;
@@ -105,6 +122,9 @@ grant all privileges on public.products to service_role;
 grant select on public.product_images to anon, authenticated;
 grant insert, update, delete on public.product_images to authenticated;
 grant all privileges on public.product_images to service_role;
+grant select on public.product_variants to anon, authenticated;
+grant insert, update, delete on public.product_variants to authenticated;
+grant all privileges on public.product_variants to service_role;
 
 create policy products_public_select_available
 on public.products
@@ -153,6 +173,36 @@ with check (public.is_admin());
 drop policy if exists "Service role can manage product images" on public.product_images;
 create policy "Service role can manage product images"
 on public.product_images
+for all
+to service_role
+using (true)
+with check (true);
+
+drop policy if exists "Public can read product variants" on public.product_variants;
+create policy "Public can read product variants"
+on public.product_variants
+for select
+to anon, authenticated
+using (
+  exists (
+    select 1
+    from public.products p
+    where p.id = product_variants.product_id
+      and p.is_available = true
+  )
+);
+
+drop policy if exists "Admins can manage product variants" on public.product_variants;
+create policy "Admins can manage product variants"
+on public.product_variants
+for all
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Service role can manage product variants" on public.product_variants;
+create policy "Service role can manage product variants"
+on public.product_variants
 for all
 to service_role
 using (true)

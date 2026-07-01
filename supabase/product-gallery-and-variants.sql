@@ -45,14 +45,11 @@ as $$
 $$;
 
 alter table public.product_images enable row level security;
-alter table public.product_images no force row level security;
 alter table public.product_variants enable row level security;
+alter table public.product_images no force row level security;
 alter table public.product_variants no force row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
-grant select on public.products to anon, authenticated;
-grant insert, update, delete on public.products to authenticated;
-grant all privileges on public.products to service_role;
 grant select on public.product_images to anon, authenticated;
 grant insert, update, delete on public.product_images to authenticated;
 grant all privileges on public.product_images to service_role;
@@ -116,23 +113,6 @@ with check (public.is_admin());
 
 create policy "Service role can manage product variants"
 on public.product_variants
-for all
-to service_role
-using (true)
-with check (true);
-
-drop policy if exists "Admins can manage products" on public.products;
-drop policy if exists "Service role can manage products" on public.products;
-
-create policy "Admins can manage products"
-on public.products
-for all
-to authenticated
-using (public.is_admin())
-with check (public.is_admin());
-
-create policy "Service role can manage products"
-on public.products
 for all
 to service_role
 using (true)

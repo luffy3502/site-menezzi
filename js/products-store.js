@@ -33,6 +33,15 @@ function normalizeProduct(product) {
           primary: true,
         },
       ];
+  const variants = Array.isArray(product.variants)
+    ? product.variants.map((variant, index) => ({
+        id: variant.id || `${product.id || "product"}-variant-${index}`,
+        colorName: variant.colorName || variant.color_name || variant.name || "",
+        image: variant.image || variant.imageUrl || variant.image_url || primaryImage,
+        imageUrl: variant.imageUrl || variant.image || variant.image_url || primaryImage,
+        sortOrder: Number(variant.sortOrder ?? variant.sort_order ?? index + 1),
+      }))
+    : [];
   return {
     id: product.id || crypto.randomUUID(),
     name: product.name || "Novo produto",
@@ -43,6 +52,7 @@ function normalizeProduct(product) {
     image: primaryImage,
     imageUrl: primaryImage,
     images,
+    variants,
     offerType,
     weeklyOffer: getOfferType({ offerType }) !== "sem_oferta",
     available: product.available ?? product.is_available ?? true,

@@ -30,6 +30,11 @@ function isMissingProductImagesTable(error) {
   return /product_images/i.test(message) && /relation|schema cache|does not exist|could not find/i.test(message);
 }
 
+function isMissingProductVariantsTable(error) {
+  const message = `${error.message || ""} ${error.supabase?.message || ""} ${error.supabase?.details || ""}`;
+  return /product_variants|product_colors/i.test(message) && /relation|schema cache|does not exist|could not find/i.test(message);
+}
+
 function normalizeProductImage(row) {
   return {
     id: row.id,
@@ -38,6 +43,18 @@ function normalizeProductImage(row) {
     imageUrl: row.image_url || "",
     sortOrder: Number(row.sort_order || 0),
     primary: row.is_primary ?? false,
+    createdAt: row.created_at || null,
+  };
+}
+
+function normalizeProductVariant(row) {
+  return {
+    id: row.id,
+    productId: row.product_id,
+    colorName: row.color_name || "",
+    image: row.image_url || "",
+    imageUrl: row.image_url || "",
+    sortOrder: Number(row.sort_order || 0),
     createdAt: row.created_at || null,
   };
 }
@@ -67,15 +84,44 @@ function normalizeIncomingImages(product, savedProductId) {
   return normalized.map((item, index) => ({ ...item, sort_order: index + 1, is_primary: index === 0 ? true : item.is_primary && !normalized.slice(0, index).some((prior) => prior.is_primary) }));
 }
 
+function normalizeIncomingVariants(product, savedProductId) {
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  const seen = new Set();
+  return variants
+    .map((item, index) => {
+      const colorName = String(item?.colorName || item?.color_name || item?.name || "").trim();
+      const image = String(item?.image || item?.imageUrl || item?.image_url || "").trim();
+      const key = `${colorName.toLowerCase()}|${image}`;
+      if (!colorName || !image || seen.has(key)) return null;
+      seen.add(key);
+      return {
+        product_id: savedProductId,
+        color_name: colorName,
+        image_url: image,
+        sort_order: Number(item?.sortOrder ?? item?.sort_order ?? index + 1),
+      };
+    })
+    .filter(Boolean)
+    .map((item, index) => ({ ...item, sort_order: index + 1 }));
+}
+
 async function attachProductImages(rows) {
   if (!rows.length) return rows.map(productFromDb);
   const ids = rows.map((row) => row.id).filter(Boolean);
   let imageRows = [];
+  let variantRows = [];
   try {
-    imageRows = await supabaseRest(`product_images?select=*&product_id=in.(${ids.join(",")})&order=sort_order.asc,created_at.asc`);
+    [imageRows, variantRows] = await Promise.all([
+      supabaseRest(`product_images?select=*&product_id=in.(${ids.join(",")})&order=sort_order.asc,created_at.asc`),
+      supabaseRest(`product_variants?select=*&product_id=in.(${ids.join(",")})&order=sort_order.asc,created_at.asc`).catch((error) => {
+        if (isMissingProductVariantsTable(error)) return [];
+        throw error;
+      }),
+    ]);
   } catch (error) {
     if (!isMissingProductImagesTable(error)) throw error;
     imageRows = [];
+    variantRows = [];
   }
 
   const byProduct = imageRows.reduce((map, row) => {
@@ -84,12 +130,19 @@ async function attachProductImages(rows) {
     map.set(row.product_id, list);
     return map;
   }, new Map());
+  const variantsByProduct = variantRows.reduce((map, row) => {
+    const list = map.get(row.product_id) || [];
+    list.push(normalizeProductVariant(row));
+    map.set(row.product_id, list);
+    return map;
+  }, new Map());
 
   return rows.map((row) => {
     const images = byProduct.get(row.id) || [];
+    const variants = variantsByProduct.get(row.id) || [];
     const primary = images.find((image) => image.primary) || images[0];
     const image_url = primary?.image || row.image_url;
-    return productFromDb({ ...row, image_url, images: images.length ? images : undefined });
+    return productFromDb({ ...row, image_url, images: images.length ? images : undefined, variants });
   });
 }
 
@@ -106,6 +159,23 @@ async function saveProductImages(productId, product) {
     return rows.map(normalizeProductImage);
   } catch (error) {
     if (isMissingProductImagesTable(error)) return [];
+    throw error;
+  }
+}
+
+async function saveProductVariants(productId, product) {
+  const variants = normalizeIncomingVariants(product, productId);
+  try {
+    await supabaseRest(`product_variants?product_id=eq.${encodeURIComponent(productId)}`, { method: "DELETE" });
+    if (!variants.length) return [];
+    const rows = await supabaseRest("product_variants", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(variants),
+    });
+    return rows.map(normalizeProductVariant);
+  } catch (error) {
+    if (isMissingProductVariantsTable(error)) return [];
     throw error;
   }
 }
@@ -166,8 +236,9 @@ async function createProduct(req, res) {
     });
   }
   const images = await saveProductImages(rows[0].id, body);
+  const variants = await saveProductVariants(rows[0].id, body);
   const primary = images.find((image) => image.primary) || images[0];
-  return sendJson(res, 201, productFromDb({ ...rows[0], image_url: primary?.image || rows[0].image_url, images: images.length ? images : undefined }));
+  return sendJson(res, 201, productFromDb({ ...rows[0], image_url: primary?.image || rows[0].image_url, images: images.length ? images : undefined, variants }));
 }
 
 async function updateProduct(req, res) {
@@ -191,8 +262,9 @@ async function updateProduct(req, res) {
     });
   }
   const images = await saveProductImages(rows[0].id, body);
+  const variants = await saveProductVariants(rows[0].id, body);
   const primary = images.find((image) => image.primary) || images[0];
-  return sendJson(res, 200, productFromDb({ ...rows[0], image_url: primary?.image || rows[0].image_url, images: images.length ? images : undefined }));
+  return sendJson(res, 200, productFromDb({ ...rows[0], image_url: primary?.image || rows[0].image_url, images: images.length ? images : undefined, variants }));
 }
 
 async function deleteProduct(req, res) {
@@ -202,6 +274,9 @@ async function deleteProduct(req, res) {
   if (!id) return sendJson(res, 400, { error: "ID obrigatorio." });
   await supabaseRest(`product_images?product_id=eq.${encodeURIComponent(id)}`, { method: "DELETE" }).catch((error) => {
     if (!isMissingProductImagesTable(error)) throw error;
+  });
+  await supabaseRest(`product_variants?product_id=eq.${encodeURIComponent(id)}`, { method: "DELETE" }).catch((error) => {
+    if (!isMissingProductVariantsTable(error)) throw error;
   });
   await supabaseRest(`products?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
   return sendJson(res, 200, { ok: true });
