@@ -348,6 +348,29 @@ alter table public.store_settings enable row level security;
 alter table public.store_testimonials enable row level security;
 alter table public.store_instagram enable row level security;
 
+alter table public.product_categories no force row level security;
+alter table public.store_gallery no force row level security;
+alter table public.store_settings no force row level security;
+alter table public.store_testimonials no force row level security;
+alter table public.store_instagram no force row level security;
+
+grant usage on schema public to anon, authenticated, service_role;
+grant select on public.product_categories to anon, authenticated;
+grant select on public.store_gallery to anon, authenticated;
+grant select on public.store_settings to anon, authenticated;
+grant select on public.store_testimonials to anon, authenticated;
+grant select on public.store_instagram to anon, authenticated;
+grant insert, update, delete on public.product_categories to authenticated;
+grant insert, update, delete on public.store_gallery to authenticated;
+grant insert, update, delete on public.store_settings to authenticated;
+grant insert, update, delete on public.store_testimonials to authenticated;
+grant insert, update, delete on public.store_instagram to authenticated;
+grant all privileges on public.product_categories to service_role;
+grant all privileges on public.store_gallery to service_role;
+grant all privileges on public.store_settings to service_role;
+grant all privileges on public.store_testimonials to service_role;
+grant all privileges on public.store_instagram to service_role;
+
 drop policy if exists "Public can read product categories" on public.product_categories;
 create policy "Public can read product categories"
 on public.product_categories
@@ -370,13 +393,47 @@ drop policy if exists "Public can read store testimonials" on public.store_testi
 create policy "Public can read store testimonials"
 on public.store_testimonials
 for select
-using (true);
+to anon, authenticated
+using (is_active = true);
+
+drop policy if exists "Admins can manage store testimonials" on public.store_testimonials;
+create policy "Admins can manage store testimonials"
+on public.store_testimonials
+for all
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Service role can manage store testimonials" on public.store_testimonials;
+create policy "Service role can manage store testimonials"
+on public.store_testimonials
+for all
+to service_role
+using (true)
+with check (true);
 
 drop policy if exists "Public can read store instagram" on public.store_instagram;
 create policy "Public can read store instagram"
 on public.store_instagram
 for select
-using (true);
+to anon, authenticated
+using (is_active = true);
+
+drop policy if exists "Admins can manage store instagram" on public.store_instagram;
+create policy "Admins can manage store instagram"
+on public.store_instagram
+for all
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Service role can manage store instagram" on public.store_instagram;
+create policy "Service role can manage store instagram"
+on public.store_instagram
+for all
+to service_role
+using (true)
+with check (true);
 
 insert into public.product_categories (name, sort_order)
 values
