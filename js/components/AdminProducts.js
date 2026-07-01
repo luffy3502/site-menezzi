@@ -117,6 +117,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
   const productColorFile = root.querySelector("[data-product-color-file]");
   const productColorsAdmin = root.querySelector("[data-product-colors-admin]");
   const submitButton = form.querySelector('button[type="submit"]');
+  const focusProductButton = root.querySelector("[data-focus-product-form]");
   const categoryModal = root.ownerDocument.querySelector("[data-category-modal]");
   const categoryForm = root.ownerDocument.querySelector("[data-category-form]");
   const categoryFile = root.ownerDocument.querySelector("[data-category-file]");
@@ -685,6 +686,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     root.querySelectorAll("[data-admin-section-button]").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.adminSectionButton === sectionName);
     });
+    if (focusProductButton) focusProductButton.hidden = sectionName !== "produtos";
   }
 
   function editCategory(name) {
