@@ -46,6 +46,41 @@ function imageUrl(req, image) {
   return absoluteUrl(req, `/${String(image || "assets/logo-menezzi.jpg").replace(/^\/+/, "")}`);
 }
 
+function productImageValue(item) {
+  return String(item?.image || item?.imageUrl || item?.image_url || item?.url || item || "").trim();
+}
+
+function productGalleryImages(req, product) {
+  const seen = new Set();
+  const images = [];
+
+  function addImage(item) {
+    const raw = productImageValue(item);
+    if (!raw) return;
+    const src = imageUrl(req, raw);
+    const key = src.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    images.push(src);
+  }
+
+  addImage(product.image || product.imageUrl || product.image_url);
+  if (Array.isArray(product.images)) {
+    const primaryRecord = product.images.find((item) => item?.primary || item?.isPrimary || item?.is_primary);
+    if (primaryRecord) addImage(primaryRecord);
+    product.images.forEach(addImage);
+  }
+  const additionalImages = Array.isArray(product.additionalImages)
+    ? product.additionalImages
+    : Array.isArray(product.additional_images)
+      ? product.additional_images
+      : [];
+  additionalImages.forEach(addImage);
+
+  if (!images.length) addImage("assets/logo-menezzi.jpg");
+  return images;
+}
+
 function isMissingProductImagesTable(error) {
   const message = `${error.message || ""} ${error.supabase?.message || ""} ${error.supabase?.details || ""}`;
   return /product_images/i.test(message) && /relation|schema cache|does not exist|could not find/i.test(message);
@@ -161,9 +196,8 @@ function renderError(req) {
 function renderProduct(req, product, related) {
   const url = absoluteUrl(req, productPath(product));
   const image = imageUrl(req, product.image);
-  const images = [...new Set((Array.isArray(product.images) && product.images.length ? product.images : [{ image }]).map((item) =>
-    imageUrl(req, item.image || item.imageUrl || image)
-  ))];
+  const images = productGalleryImages(req, product);
+  const hasGallery = images.length > 1;
   const variants = Array.isArray(product.variants) ? product.variants.filter((variant) => variant.colorName && variant.image) : [];
   const offerLabel = OFFER_LABELS[product.offerType] || "Oferta";
   const description = product.description || "Produto selecionado da MENEZZI.";
@@ -199,21 +233,26 @@ function renderProduct(req, product, related) {
       <article class="product-detail">
         <div class="product-detail-media">
           <div class="product-gallery-frame" data-product-gallery-frame>
-            <button class="product-gallery-arrow prev" type="button" aria-label="Foto anterior" data-product-gallery-prev>‹</button>
+            ${hasGallery ? '<button class="product-gallery-arrow prev" type="button" aria-label="Foto anterior" data-product-gallery-prev>&lsaquo;</button>' : ""}
             <img src="${escapeHtml(images[0])}" alt="${escapeHtml(product.name)}" data-product-main-image data-gallery-index="0" />
-            <button class="product-gallery-arrow next" type="button" aria-label="Proxima foto" data-product-gallery-next>›</button>
+            ${hasGallery ? '<button class="product-gallery-arrow next" type="button" aria-label="Proxima foto" data-product-gallery-next>&rsaquo;</button>' : ""}
+            ${hasGallery ? `<span class="product-gallery-counter" data-product-gallery-counter>1/${images.length}</span>` : ""}
           </div>
-          <div class="product-detail-thumbs">
-            ${images
-              .map(
-                (item, index) => `
-                  <button class="${index === 0 ? "is-active" : ""}" type="button" data-product-thumb="${escapeHtml(item)}" data-index="${index}" aria-label="Ver foto ${index + 1}">
-                    <img src="${escapeHtml(item)}" alt="${escapeHtml(product.name)}" loading="lazy" />
-                  </button>
-                `
-              )
-              .join("")}
-          </div>
+          ${
+            hasGallery
+              ? `<div class="product-detail-thumbs">
+                  ${images
+                    .map(
+                      (item, index) => `
+                        <button class="${index === 0 ? "is-active" : ""}" type="button" data-product-thumb="${escapeHtml(item)}" data-index="${index}" aria-label="Ver foto ${index + 1}">
+                          <img src="${escapeHtml(item)}" alt="${escapeHtml(product.name)}" loading="lazy" />
+                        </button>
+                      `
+                    )
+                    .join("")}
+                </div>`
+              : ""
+          }
           ${
             variants.length
               ? `<div class="product-colors"><span>Cores</span>${variants
@@ -279,6 +318,9 @@ function renderProduct(req, product, related) {
         if (!main || !src) return;
         main.src = src;
         if (index >= 0) main.dataset.galleryIndex = String(index);
+        const counter = document.querySelector("[data-product-gallery-counter]");
+        const total = document.querySelectorAll("[data-product-thumb]").length;
+        if (counter && total) counter.textContent = (Number(main.dataset.galleryIndex || 0) + 1) + "/" + total;
         document.querySelectorAll("[data-product-thumb]").forEach((item, itemIndex) => {
           item.classList.toggle("is-active", itemIndex === Number(main.dataset.galleryIndex || 0));
         });
@@ -336,12 +378,11 @@ async function attachProductImages(product) {
     if (!rows.length && !variantRows.length) return product;
     const images = rows.map((row) => ({
       id: row.id,
-      image: row.image_url,
-      imageUrl: row.image_url,
+      image: row.image_url || row.url || "",
+      imageUrl: row.image_url || row.url || "",
       sortOrder: Number(row.sort_order || 0),
       primary: row.is_primary ?? false,
     }));
-    const primary = images.find((item) => item.primary) || images[0];
     const variants = variantRows.map((row) => ({
       id: row.id,
       colorName: row.color_name || "",
@@ -349,7 +390,7 @@ async function attachProductImages(product) {
       imageUrl: row.image_url || "",
       sortOrder: Number(row.sort_order || 0),
     }));
-    return { ...product, image: primary?.image || product.image, imageUrl: primary?.image || product.image, images: images.length ? images : product.images, variants };
+    return { ...product, images: images.length ? images : product.images, variants };
   } catch (error) {
     if (isMissingProductImagesTable(error)) return product;
     throw error;

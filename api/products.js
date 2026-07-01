@@ -44,8 +44,8 @@ function normalizeProductImage(row) {
   return {
     id: row.id,
     productId: row.product_id,
-    image: row.image_url || "",
-    imageUrl: row.image_url || "",
+    image: row.image_url || row.url || "",
+    imageUrl: row.image_url || row.url || "",
     sortOrder: Number(row.sort_order || 0),
     primary: row.is_primary ?? false,
     createdAt: row.created_at || null,
@@ -66,6 +66,11 @@ function normalizeProductVariant(row) {
 
 function normalizeIncomingImages(product, savedProductId) {
   const sourceImages = Array.isArray(product.images) ? product.images : [];
+  const additionalImages = Array.isArray(product.additionalImages)
+    ? product.additionalImages
+    : Array.isArray(product.additional_images)
+      ? product.additional_images
+      : [];
   const mainImage = String(product.image || product.imageUrl || product.image_url || "").trim();
   const seen = new Set();
   const normalized = [];
@@ -85,6 +90,7 @@ function normalizeIncomingImages(product, savedProductId) {
 
   if (mainImage) addImage({ image: mainImage, sortOrder: 1, primary: true }, 0, true);
   sourceImages.forEach((item, index) => addImage(item, index + 1));
+  additionalImages.forEach((item, index) => addImage(item, index + sourceImages.length + 1));
   if (normalized.length && !normalized.some((item) => item.is_primary)) normalized[0].is_primary = true;
   return normalized.map((item, index) => ({ ...item, sort_order: index + 1, is_primary: index === 0 ? true : item.is_primary && !normalized.slice(0, index).some((prior) => prior.is_primary) }));
 }
@@ -145,9 +151,7 @@ async function attachProductImages(rows) {
   return rows.map((row) => {
     const images = byProduct.get(row.id) || [];
     const variants = variantsByProduct.get(row.id) || [];
-    const primary = images.find((image) => image.primary) || images[0];
-    const image_url = primary?.image || row.image_url;
-    return productFromDb({ ...row, image_url, images: images.length ? images : undefined, variants });
+    return productFromDb({ ...row, images: images.length ? images : undefined, variants });
   });
 }
 

@@ -13,41 +13,43 @@ function createApiError(payload, fallbackMessage, status) {
   return error;
 }
 
-function normalizeProduct(product) {
-  const offerType = product.offerType || product.offer_type || (product.weeklyOffer ?? product.is_offer ? "oferta_semana" : "sem_oferta");
-  const primaryImage = product.image || product.imageUrl || product.image_url || "assets/logo-menezzi.jpg";
+function imageValue(item) {
+  return String(item?.image || item?.imageUrl || item?.image_url || item?.url || item || "").trim();
+}
+
+function uniqueProductImages(product, primaryImage) {
+  const seen = new Set();
+  const images = [];
+
+  function addImage(item, index, primary = false) {
+    const image = imageValue(item);
+    const key = image.toLowerCase();
+    if (!image || seen.has(key)) return;
+    seen.add(key);
+    images.push({
+      id: item?.id || `${product.id || "product"}-image-${index}`,
+      image,
+      imageUrl: image,
+      sortOrder: Number(item?.sortOrder ?? item?.sort_order ?? images.length + 1),
+      primary,
+    });
+  }
+
+  addImage(primaryImage, 0, true);
+  if (Array.isArray(product.images)) {
+    const primaryRecord = product.images.find((item) => item?.primary || item?.isPrimary || item?.is_primary);
+    if (primaryRecord) addImage(primaryRecord, 0, true);
+    product.images.forEach((item, index) => addImage(item, index + 1, false));
+  }
   const additionalImages = Array.isArray(product.additionalImages)
     ? product.additionalImages
     : Array.isArray(product.additional_images)
       ? product.additional_images
       : [];
-  const images = Array.isArray(product.images) && product.images.length
-    ? product.images.map((image, index) => ({
-        id: image.id || `${product.id || "product"}-image-${index}`,
-        image: image.image || image.imageUrl || image.image_url || primaryImage,
-        imageUrl: image.imageUrl || image.image || image.image_url || primaryImage,
-        sortOrder: Number(image.sortOrder ?? image.sort_order ?? index + 1),
-        primary: image.primary ?? image.isPrimary ?? image.is_primary ?? index === 0,
-      }))
-    : additionalImages.length
-      ? [
-          {
-            id: `${product.id || "product"}-primary`,
-            image: primaryImage,
-            imageUrl: primaryImage,
-            sortOrder: 1,
-            primary: true,
-          },
-          ...additionalImages
-            .filter((image) => image && image !== primaryImage)
-            .map((image, index) => ({
-              id: `${product.id || "product"}-additional-${index}`,
-              image,
-              imageUrl: image,
-              sortOrder: index + 2,
-              primary: false,
-            })),
-        ]
+  additionalImages.forEach((item, index) => addImage(item, index + 100, false));
+
+  return images.length
+    ? images.map((item, index) => ({ ...item, sortOrder: index + 1, primary: index === 0 }))
     : [
         {
           id: `${product.id || "product"}-primary`,
@@ -57,6 +59,17 @@ function normalizeProduct(product) {
           primary: true,
         },
       ];
+}
+
+function normalizeProduct(product) {
+  const offerType = product.offerType || product.offer_type || (product.weeklyOffer ?? product.is_offer ? "oferta_semana" : "sem_oferta");
+  const primaryImage = product.image || product.imageUrl || product.image_url || "assets/logo-menezzi.jpg";
+  const additionalImages = Array.isArray(product.additionalImages)
+    ? product.additionalImages
+    : Array.isArray(product.additional_images)
+      ? product.additional_images
+      : [];
+  const images = uniqueProductImages(product, primaryImage);
   const variants = Array.isArray(product.variants)
     ? product.variants.map((variant, index) => ({
         id: variant.id || `${product.id || "product"}-variant-${index}`,

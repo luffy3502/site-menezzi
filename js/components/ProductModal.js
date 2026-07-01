@@ -1,5 +1,37 @@
 import { buildWhatsappUrl, formatCurrency, getOfferLabel, getOfferType, productPath } from "../config.js";
 
+function imageValue(item) {
+  return String(item?.image || item?.imageUrl || item?.image_url || item?.url || item || "").trim();
+}
+
+function productGalleryImages(product) {
+  const seen = new Set();
+  const images = [];
+
+  function addImage(item) {
+    const image = imageValue(item);
+    const key = image.toLowerCase();
+    if (!image || seen.has(key)) return;
+    seen.add(key);
+    images.push(image);
+  }
+
+  addImage(product.image || product.imageUrl || product.image_url);
+  if (Array.isArray(product.images)) {
+    const primaryRecord = product.images.find((item) => item?.primary || item?.isPrimary || item?.is_primary);
+    if (primaryRecord) addImage(primaryRecord);
+    product.images.forEach(addImage);
+  }
+  const additionalImages = Array.isArray(product.additionalImages)
+    ? product.additionalImages
+    : Array.isArray(product.additional_images)
+      ? product.additional_images
+      : [];
+  additionalImages.forEach(addImage);
+
+  return images.length ? images : [product.image || product.imageUrl || "assets/logo-menezzi.jpg"];
+}
+
 export function ProductModal(container) {
   function close() {
     container.hidden = true;
@@ -9,7 +41,8 @@ export function ProductModal(container) {
 
   function open(product) {
     const offerType = getOfferType(product);
-    const images = Array.isArray(product.images) && product.images.length ? product.images : [{ image: product.image }];
+    const images = productGalleryImages(product);
+    const hasGallery = images.length > 1;
     const variants = Array.isArray(product.variants) ? product.variants.filter((variant) => variant.colorName && variant.image) : [];
 
     container.innerHTML = `
@@ -17,21 +50,26 @@ export function ProductModal(container) {
         <button class="modal-close" type="button" aria-label="Fechar produto" data-close-product>X</button>
         <div class="modal-gallery">
           <div class="product-gallery-frame">
-            <button class="product-gallery-arrow prev" type="button" aria-label="Foto anterior" data-modal-gallery-prev>‹</button>
-            <img src="${images[0].image || images[0].imageUrl}" alt="${product.name}" data-modal-main-image data-gallery-index="0" />
-            <button class="product-gallery-arrow next" type="button" aria-label="Proxima foto" data-modal-gallery-next>›</button>
+            ${hasGallery ? '<button class="product-gallery-arrow prev" type="button" aria-label="Foto anterior" data-modal-gallery-prev>&lsaquo;</button>' : ""}
+            <img src="${images[0]}" alt="${product.name}" data-modal-main-image data-gallery-index="0" />
+            ${hasGallery ? '<button class="product-gallery-arrow next" type="button" aria-label="Proxima foto" data-modal-gallery-next>&rsaquo;</button>' : ""}
+            ${hasGallery ? `<span class="product-gallery-counter" data-modal-gallery-counter>1/${images.length}</span>` : ""}
           </div>
-          <div class="product-detail-thumbs">
-            ${images
-              .map(
-                (item, index) => `
-                  <button class="${index === 0 ? "is-active" : ""}" type="button" data-modal-thumb="${item.image || item.imageUrl}" data-index="${index}" aria-label="Ver foto ${index + 1}">
-                    <img src="${item.image || item.imageUrl}" alt="${product.name}" loading="lazy" />
-                  </button>
-                `
-              )
-              .join("")}
-          </div>
+          ${
+            hasGallery
+              ? `<div class="product-detail-thumbs">
+                  ${images
+                    .map(
+                      (item, index) => `
+                        <button class="${index === 0 ? "is-active" : ""}" type="button" data-modal-thumb="${item}" data-index="${index}" aria-label="Ver foto ${index + 1}">
+                          <img src="${item}" alt="${product.name}" loading="lazy" />
+                        </button>
+                      `
+                    )
+                    .join("")}
+                </div>`
+              : ""
+          }
         </div>
         <div class="modal-info">
           <div class="modal-labels">
@@ -98,6 +136,8 @@ export function ProductModal(container) {
     if (!main || !src) return;
     main.src = src;
     if (index >= 0) main.dataset.galleryIndex = String(index);
+    const counter = container.querySelector("[data-modal-gallery-counter]");
+    if (counter && thumbs.length) counter.textContent = `${Number(main.dataset.galleryIndex || 0) + 1}/${thumbs.length}`;
     thumbs.forEach((thumb, thumbIndex) => {
       thumb.classList.toggle("is-active", thumbIndex === Number(main.dataset.galleryIndex || 0));
     });
