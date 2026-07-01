@@ -170,6 +170,12 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     uploadProgressBar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
   }
 
+  function resetFileInputs() {
+    if (imageFile) imageFile.value = "";
+    if (extraImageFiles) extraImageFiles.value = "";
+    if (productColorFile) productColorFile.value = "";
+  }
+
   function setBusy(isBusy, message = "") {
     saving = isBusy;
     submitButton.disabled = isBusy || uploading;
@@ -374,7 +380,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     productExtraImages = [];
     productVariants = [];
     if (productColorName) productColorName.value = "";
-    if (productColorFile) productColorFile.value = "";
+    resetFileInputs();
     productCategorySelect.value = categoryChoices()[0] || DEFAULT_CATEGORIES[0];
     imagePreview.src = FALLBACK_IMAGE;
     formTitle.textContent = "Novo produto";
@@ -409,6 +415,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     setUploadMessage("");
     renderProductImagesAdmin();
     renderProductColorsAdmin();
+    resetFileInputs();
     form.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -1119,13 +1126,13 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
           completed += 1;
           continue;
         }
-        const optimizedFile = await compressImage(file);
-        const previewUrl = URL.createObjectURL(optimizedFile);
+        const previewUrl = URL.createObjectURL(file);
         productExtraImages = [
           ...productExtraImages,
           { id: `pending-${Date.now()}-${file.name}`, image: previewUrl, imageUrl: previewUrl, fingerprint, uploading: true },
         ];
         renderProductImagesAdmin();
+        const optimizedFile = await compressImage(file);
         const url = await uploadProductImageWithProgress(optimizedFile, (percent) => {
           setUploadProgress(Math.round(((completed + percent / 100) / selectedFiles.length) * 100));
         });

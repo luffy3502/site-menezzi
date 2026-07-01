@@ -80,7 +80,6 @@ function normalizeIncomingImages(product, savedProductId) {
     if (!image || seen.has(image)) return;
     seen.add(image);
     normalized.push({
-      id: item?.id && !String(item.id).endsWith("-primary") ? item.id : undefined,
       product_id: savedProductId,
       image_url: image,
       sort_order: Number(item?.sortOrder ?? item?.sort_order ?? index + 1),
