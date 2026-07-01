@@ -1709,6 +1709,22 @@ noscript {
   color: #8b2d20;
 }
 
+.upload-progress {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(16, 16, 16, 0.1);
+}
+
+.upload-progress span {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--gold);
+  transition: width 180ms ease;
+}
+
 .button.is-loading {
   position: relative;
   color: transparent;

@@ -16,6 +16,11 @@ function createApiError(payload, fallbackMessage, status) {
 function normalizeProduct(product) {
   const offerType = product.offerType || product.offer_type || (product.weeklyOffer ?? product.is_offer ? "oferta_semana" : "sem_oferta");
   const primaryImage = product.image || product.imageUrl || product.image_url || "assets/logo-menezzi.jpg";
+  const additionalImages = Array.isArray(product.additionalImages)
+    ? product.additionalImages
+    : Array.isArray(product.additional_images)
+      ? product.additional_images
+      : [];
   const images = Array.isArray(product.images) && product.images.length
     ? product.images.map((image, index) => ({
         id: image.id || `${product.id || "product"}-image-${index}`,
@@ -24,6 +29,25 @@ function normalizeProduct(product) {
         sortOrder: Number(image.sortOrder ?? image.sort_order ?? index + 1),
         primary: image.primary ?? image.isPrimary ?? image.is_primary ?? index === 0,
       }))
+    : additionalImages.length
+      ? [
+          {
+            id: `${product.id || "product"}-primary`,
+            image: primaryImage,
+            imageUrl: primaryImage,
+            sortOrder: 1,
+            primary: true,
+          },
+          ...additionalImages
+            .filter((image) => image && image !== primaryImage)
+            .map((image, index) => ({
+              id: `${product.id || "product"}-additional-${index}`,
+              image,
+              imageUrl: image,
+              sortOrder: index + 2,
+              primary: false,
+            })),
+        ]
     : [
         {
           id: `${product.id || "product"}-primary`,
@@ -52,6 +76,7 @@ function normalizeProduct(product) {
     image: primaryImage,
     imageUrl: primaryImage,
     images,
+    additionalImages,
     variants,
     offerType,
     weeklyOffer: getOfferType({ offerType }) !== "sem_oferta",
@@ -125,6 +150,10 @@ export async function reorderProducts(ids) {
 }
 
 export async function uploadProductImage(file) {
+  return uploadProductImageWithProgress(file);
+}
+
+export async function uploadProductImageWithProgress(file, onProgress = () => {}) {
   const dataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
@@ -132,21 +161,33 @@ export async function uploadProductImage(file) {
     reader.readAsDataURL(file);
   });
 
-  const response = await fetch(storeConfig.uploadApiUrl, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...adminAuthHeaders() },
-    body: JSON.stringify({
-      fileName: file.name,
-      contentType: file.type,
-      dataUrl,
-    }),
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", storeConfig.uploadApiUrl);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader("Content-Type", "application/json");
+    Object.entries(adminAuthHeaders()).forEach(([key, value]) => xhr.setRequestHeader(key, value));
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+    });
+    xhr.addEventListener("load", () => {
+      const payload = JSON.parse(xhr.responseText || "{}");
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(createApiError(payload, "Nao foi possivel enviar a imagem.", xhr.status));
+        return;
+      }
+      onProgress(100);
+      resolve(payload.url);
+    });
+    xhr.addEventListener("error", () => reject(new Error("Nao foi possivel enviar a imagem.")));
+    xhr.send(
+      JSON.stringify({
+        fileName: file.name,
+        contentType: file.type,
+        dataUrl,
+      })
+    );
   });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw createApiError(payload, "Nao foi possivel enviar a imagem.", response.status);
-  }
-  return payload.url;
 }
 
 async function requestAdminContent(url = storeConfig.adminContentApiUrl, options = {}) {

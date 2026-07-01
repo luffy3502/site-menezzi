@@ -35,6 +35,11 @@ function isMissingProductVariantsTable(error) {
   return /product_variants|product_colors/i.test(message) && /relation|schema cache|does not exist|could not find/i.test(message);
 }
 
+function isMissingAdditionalImagesColumn(error) {
+  const message = `${error.message || ""} ${error.supabase?.message || ""} ${error.supabase?.details || ""}`;
+  return /additional_images/i.test(message) && /column|schema|could not find/i.test(message);
+}
+
 function normalizeProductImage(row) {
   return {
     id: row.id,
@@ -163,6 +168,19 @@ async function saveProductImages(productId, product) {
   }
 }
 
+async function syncAdditionalImagesColumn(productId, images) {
+  const additionalImages = images.filter((image) => !image.primary).map((image) => image.image);
+  try {
+    await supabaseRest(`products?id=eq.${encodeURIComponent(productId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ additional_images: additionalImages }),
+    });
+  } catch (error) {
+    if (isMissingAdditionalImagesColumn(error)) return;
+    throw error;
+  }
+}
+
 async function saveProductVariants(productId, product) {
   const variants = normalizeIncomingVariants(product, productId);
   try {
@@ -236,6 +254,7 @@ async function createProduct(req, res) {
     });
   }
   const images = await saveProductImages(rows[0].id, body);
+  await syncAdditionalImagesColumn(rows[0].id, images);
   const variants = await saveProductVariants(rows[0].id, body);
   const primary = images.find((image) => image.primary) || images[0];
   return sendJson(res, 201, productFromDb({ ...rows[0], image_url: primary?.image || rows[0].image_url, images: images.length ? images : undefined, variants }));
@@ -262,6 +281,7 @@ async function updateProduct(req, res) {
     });
   }
   const images = await saveProductImages(rows[0].id, body);
+  await syncAdditionalImagesColumn(rows[0].id, images);
   const variants = await saveProductVariants(rows[0].id, body);
   const primary = images.find((image) => image.primary) || images[0];
   return sendJson(res, 200, productFromDb({ ...rows[0], image_url: primary?.image || rows[0].image_url, images: images.length ? images : undefined, variants }));

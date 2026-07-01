@@ -161,9 +161,9 @@ function renderError(req) {
 function renderProduct(req, product, related) {
   const url = absoluteUrl(req, productPath(product));
   const image = imageUrl(req, product.image);
-  const images = (Array.isArray(product.images) && product.images.length ? product.images : [{ image }]).map((item) =>
+  const images = [...new Set((Array.isArray(product.images) && product.images.length ? product.images : [{ image }]).map((item) =>
     imageUrl(req, item.image || item.imageUrl || image)
-  );
+  ))];
   const variants = Array.isArray(product.variants) ? product.variants.filter((variant) => variant.colorName && variant.image) : [];
   const offerLabel = OFFER_LABELS[product.offerType] || "Oferta";
   const description = product.description || "Produto selecionado da MENEZZI.";
@@ -207,7 +207,7 @@ function renderProduct(req, product, related) {
             ${images
               .map(
                 (item, index) => `
-                  <button class="${index === 0 ? "is-active" : ""}" type="button" data-product-thumb="${escapeHtml(item)}" aria-label="Ver foto ${index + 1}">
+                  <button class="${index === 0 ? "is-active" : ""}" type="button" data-product-thumb="${escapeHtml(item)}" data-index="${index}" aria-label="Ver foto ${index + 1}">
                     <img src="${escapeHtml(item)}" alt="${escapeHtml(product.name)}" loading="lazy" />
                   </button>
                 `

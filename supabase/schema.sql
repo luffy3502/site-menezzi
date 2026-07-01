@@ -18,6 +18,57 @@ create table if not exists public.products (
 alter table public.products
   add column if not exists offer_type text not null default 'sem_oferta';
 
+create or replace function public.jsonb_text_array(value jsonb)
+returns text[]
+language sql
+immutable
+as $$
+  select coalesce(array_agg(item), '{}'::text[])
+  from jsonb_array_elements_text(
+    case when jsonb_typeof(value) = 'array' then value else '[]'::jsonb end
+  ) as item;
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'products'
+      and column_name = 'additional_images'
+  ) then
+    alter table public.products add column additional_images text[] not null default '{}';
+  elsif exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'products'
+      and column_name = 'additional_images'
+      and udt_name <> '_text'
+  ) then
+    if exists (
+      select 1
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'products'
+        and column_name = 'additional_images'
+        and data_type = 'jsonb'
+    ) then
+      alter table public.products
+        alter column additional_images type text[]
+        using public.jsonb_text_array(additional_images);
+    else
+      alter table public.products
+        alter column additional_images type text[]
+        using '{}'::text[];
+    end if;
+  end if;
+  alter table public.products alter column additional_images set default '{}';
+  update public.products set additional_images = '{}' where additional_images is null;
+  alter table public.products alter column additional_images set not null;
+end $$;
+
 update public.products
 set offer_type = case when is_offer then 'oferta_semana' else 'sem_oferta' end
 where offer_type is null or offer_type = '';
@@ -58,6 +109,15 @@ where p.image_url <> ''
     from public.product_images pi
     where pi.product_id = p.id
   );
+
+update public.products p
+set additional_images = coalesce(images.urls, '{}')
+from (
+  select product_id, array_agg(image_url order by sort_order, created_at) filter (where not is_primary) as urls
+  from public.product_images
+  group by product_id
+) images
+where images.product_id = p.id;
 
 create or replace function public.is_admin()
 returns boolean

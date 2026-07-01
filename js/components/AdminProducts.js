@@ -17,11 +17,14 @@ import {
   saveTestimonial,
   updateProduct,
   uploadProductImage,
+  uploadProductImageWithProgress,
 } from "../products-store.js";
 import { categoryOptions, formatCurrency, getOfferLabel, getOfferType, offerTypes } from "../config.js";
 
 const FALLBACK_IMAGE = "../assets/logo-menezzi.jpg";
 const DEFAULT_CATEGORIES = categoryOptions;
+const MAX_EXTRA_IMAGES = 10;
+const ACCEPTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const AVAILABILITY_OPTIONS = [
   { value: "true", label: "Disponivel", tone: "success" },
   { value: "false", label: "Indisponivel", tone: "danger" },
@@ -29,7 +32,43 @@ const AVAILABILITY_OPTIONS = [
 
 function adminImageSrc(image) {
   if (!image) return FALLBACK_IMAGE;
-  return /^https?:\/\//i.test(image) || image.startsWith("../") ? image : `../${image}`;
+  return /^(https?:|blob:|data:)/i.test(image) || image.startsWith("../") ? image : `../${image}`;
+}
+
+function imageKey(image) {
+  return String(image || "").trim().toLowerCase();
+}
+
+async function compressImage(file) {
+  if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
+    throw new Error("Use imagens JPG, PNG ou WebP.");
+  }
+  if (!file.type.startsWith("image/")) return file;
+
+  const image = await new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Nao foi possivel ler a imagem."));
+    img.src = URL.createObjectURL(file);
+  });
+
+  const maxSide = 1600;
+  const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  canvas.getContext("2d").drawImage(image, 0, 0, width, height);
+
+  const outputType = file.type === "image/png" ? "image/png" : "image/webp";
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, outputType, 0.82));
+  URL.revokeObjectURL(image.src);
+  if (!blob || blob.size >= file.size) return file;
+
+  const extension = outputType === "image/webp" ? "webp" : "png";
+  const name = file.name.replace(/\.[^.]+$/, `.${extension}`);
+  return new File([blob], name, { type: outputType, lastModified: Date.now() });
 }
 
 function byManualOrder(products) {
@@ -72,6 +111,8 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
   const extraImageFiles = root.querySelector("[data-product-extra-files]");
   const imagePreview = root.querySelector("[data-image-preview]");
   const productImagesAdmin = root.querySelector("[data-product-images-admin]");
+  const uploadProgress = root.querySelector("[data-upload-progress]");
+  const uploadProgressBar = root.querySelector("[data-upload-progress-bar]");
   const productColorName = root.querySelector("[data-product-color-name]");
   const productColorFile = root.querySelector("[data-product-color-file]");
   const productColorsAdmin = root.querySelector("[data-product-colors-admin]");
@@ -123,6 +164,12 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     uploadMessage.classList.toggle("is-error", isError);
   }
 
+  function setUploadProgress(percent = 0, visible = true) {
+    if (!uploadProgress || !uploadProgressBar) return;
+    uploadProgress.hidden = !visible;
+    uploadProgressBar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+  }
+
   function setBusy(isBusy, message = "") {
     saving = isBusy;
     submitButton.disabled = isBusy || uploading;
@@ -153,7 +200,12 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
   function normalizeProductImages(product) {
     const mainImage = product?.image || product?.imageUrl || "";
     const images = Array.isArray(product?.images) ? product.images : [];
-    const seen = new Set([mainImage].filter(Boolean));
+    const additionalImages = Array.isArray(product?.additionalImages)
+      ? product.additionalImages
+      : Array.isArray(product?.additional_images)
+        ? product.additional_images
+        : [];
+    const seen = new Set([imageKey(mainImage)].filter(Boolean));
     return images.reduce((list, item, index) => {
       const normalized = {
         id: item.id || `${product?.id || "new"}-extra-${index}`,
@@ -162,10 +214,16 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
         sortOrder: Number(item.sortOrder || index + 1),
         primary: Boolean(item.primary),
       };
-      if (!normalized.image || normalized.primary || seen.has(normalized.image)) return list;
-      seen.add(normalized.image);
+      if (!normalized.image || normalized.primary || seen.has(imageKey(normalized.image))) return list;
+      seen.add(imageKey(normalized.image));
       return [...list, normalized];
-    }, []);
+    }, []).concat(
+      additionalImages.reduce((list, image, index) => {
+        if (!image || seen.has(imageKey(image))) return list;
+        seen.add(imageKey(image));
+        return [...list, { id: `${product?.id || "new"}-additional-${index}`, image, imageUrl: image, sortOrder: images.length + index + 1, primary: false }];
+      }, [])
+    );
   }
 
   function normalizeProductVariants(product) {
@@ -194,7 +252,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
       });
     }
     productExtraImages.forEach((item, index) => {
-      if (!item.image || item.image === mainImage) return;
+      if (!item.image || imageKey(item.image) === imageKey(mainImage) || item.image.startsWith("blob:")) return;
       images.push({
         ...item,
         sortOrder: index + 2,
@@ -236,10 +294,11 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
             (item, index) => `
               <article class="product-extra-image" draggable="true" data-product-extra-image="${item.image}">
                 <img src="${adminImageSrc(item.image)}" alt="Foto adicional do produto" />
+                ${item.uploading ? '<span class="status-soft">Enviando</span>' : ""}
                 <div class="admin-actions">
-                  <button class="button button-light" type="button" data-product-extra-primary="${item.image}">Usar como principal</button>
-                  <button class="button button-light" type="button" data-product-extra-move="${item.image}" data-direction="-1" ${index === 0 ? "disabled" : ""}>Subir</button>
-                  <button class="button button-light" type="button" data-product-extra-move="${item.image}" data-direction="1" ${index === productExtraImages.length - 1 ? "disabled" : ""}>Descer</button>
+                  <button class="button button-light" type="button" data-product-extra-primary="${item.image}" ${item.uploading ? "disabled" : ""}>Usar como principal</button>
+                  <button class="button button-light" type="button" data-product-extra-move="${item.image}" data-direction="-1" ${index === 0 || item.uploading ? "disabled" : ""}>Subir</button>
+                  <button class="button button-light" type="button" data-product-extra-move="${item.image}" data-direction="1" ${index === productExtraImages.length - 1 || item.uploading ? "disabled" : ""}>Descer</button>
                   <button class="button danger-button" type="button" data-product-extra-remove="${item.image}">Remover</button>
                 </div>
               </article>
@@ -264,6 +323,7 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
       image,
       imageUrl: image,
       images: allProductImages(),
+      additionalImages: productExtraImages.filter((item) => item.image && !item.image.startsWith("blob:")).map((item) => item.image),
       variants: productVariants.map((variant, index) => ({ ...variant, sortOrder: index + 1 })),
       description: data.get("description").trim(),
       offerType,
@@ -778,15 +838,18 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
       if (clearInstagramButton) clearInstagramForm();
       if (productExtraPrimary) {
         const image = productExtraPrimary.dataset.productExtraPrimary;
+        if (!image || image.startsWith("blob:")) return;
         const oldMain = form.elements.image.value;
-        productExtraImages = productExtraImages.filter((item) => item.image !== image);
-        if (oldMain) productExtraImages = [{ id: `extra-${Date.now()}`, image: oldMain, imageUrl: oldMain }, ...productExtraImages];
+        productExtraImages = productExtraImages.filter((item) => imageKey(item.image) !== imageKey(image));
+        if (oldMain && !productExtraImages.some((item) => imageKey(item.image) === imageKey(oldMain))) {
+          productExtraImages = [{ id: `extra-${Date.now()}`, image: oldMain, imageUrl: oldMain }, ...productExtraImages];
+        }
         form.elements.image.value = image;
         imagePreview.src = adminImageSrc(image);
         renderProductImagesAdmin();
       }
       if (productExtraRemove) {
-        productExtraImages = productExtraImages.filter((item) => item.image !== productExtraRemove.dataset.productExtraRemove);
+        productExtraImages = productExtraImages.filter((item) => imageKey(item.image) !== imageKey(productExtraRemove.dataset.productExtraRemove));
         renderProductImagesAdmin();
       }
       if (productExtraMove) {
@@ -816,8 +879,12 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
       }
       if (productColorImage) {
         const image = productColorImage.dataset.productColorImage;
+        if (productExtraImages.length < MAX_EXTRA_IMAGES && form.elements.image.value && !productExtraImages.some((item) => imageKey(item.image) === imageKey(form.elements.image.value))) {
+          productExtraImages = [{ id: `extra-${Date.now()}`, image: form.elements.image.value, imageUrl: form.elements.image.value }, ...productExtraImages];
+        }
         form.elements.image.value = image;
         imagePreview.src = adminImageSrc(image);
+        renderProductImagesAdmin();
       }
       if (productColorRemove) {
         productVariants = productVariants.filter((item) => item.image !== productColorRemove.dataset.productColorRemove);
@@ -1011,49 +1078,86 @@ export function AdminProducts(root, initialProducts, initialContent = {}) {
     imagePreview.src = URL.createObjectURL(file);
     uploading = true;
     submitButton.disabled = true;
+    setUploadProgress(5);
     setUploadMessage("Enviando imagem...");
     try {
-      const url = await uploadProductImage(file);
+      const optimizedFile = await compressImage(file);
+      const url = await uploadProductImageWithProgress(optimizedFile, (percent) => setUploadProgress(percent));
       form.elements.image.value = url;
       imagePreview.src = url;
       setUploadMessage("Upload concluido.");
     } catch (error) {
       console.error("Erro completo ao enviar imagem para o Supabase:", error);
-      setUploadMessage("Erro ao enviar imagem.", true);
+      setUploadMessage(error.message || "Erro ao enviar imagem.", true);
       form.elements.image.value = "";
     } finally {
       uploading = false;
       submitButton.disabled = saving;
+      window.setTimeout(() => setUploadProgress(0, false), 900);
     }
   });
 
   extraImageFiles.addEventListener("change", async () => {
     const files = [...extraImageFiles.files];
     if (!files.length) return;
+    const availableSlots = MAX_EXTRA_IMAGES - productExtraImages.length;
+    if (availableSlots <= 0) {
+      setUploadMessage(`Limite de ${MAX_EXTRA_IMAGES} fotos adicionais atingido.`, true);
+      extraImageFiles.value = "";
+      return;
+    }
     uploading = true;
     submitButton.disabled = true;
+    setUploadProgress(0);
     setUploadMessage("Enviando fotos adicionais...");
     try {
-      for (const file of files) {
-        const previewUrl = URL.createObjectURL(file);
-        productExtraImages = [...productExtraImages, { id: `pending-${Date.now()}-${file.name}`, image: previewUrl, imageUrl: previewUrl }];
+      const selectedFiles = files.slice(0, availableSlots);
+      let completed = 0;
+      for (const file of selectedFiles) {
+        const fingerprint = `${file.name}:${file.size}:${file.lastModified}`;
+        if (productExtraImages.some((item) => item.fingerprint === fingerprint)) {
+          completed += 1;
+          continue;
+        }
+        const optimizedFile = await compressImage(file);
+        const previewUrl = URL.createObjectURL(optimizedFile);
+        productExtraImages = [
+          ...productExtraImages,
+          { id: `pending-${Date.now()}-${file.name}`, image: previewUrl, imageUrl: previewUrl, fingerprint, uploading: true },
+        ];
         renderProductImagesAdmin();
-        const url = await uploadProductImage(file);
+        const url = await uploadProductImageWithProgress(optimizedFile, (percent) => {
+          setUploadProgress(Math.round(((completed + percent / 100) / selectedFiles.length) * 100));
+        });
+        if (productExtraImages.some((item) => imageKey(item.image) === imageKey(url))) {
+          productExtraImages = productExtraImages.filter((item) => item.image !== previewUrl);
+          URL.revokeObjectURL(previewUrl);
+          completed += 1;
+          continue;
+        }
         productExtraImages = productExtraImages.map((item) =>
-          item.image === previewUrl ? { id: `extra-${Date.now()}-${file.name}`, image: url, imageUrl: url } : item
+          item.image === previewUrl ? { id: `extra-${Date.now()}-${file.name}`, image: url, imageUrl: url, fingerprint } : item
         );
+        URL.revokeObjectURL(previewUrl);
+        completed += 1;
       }
       extraImageFiles.value = "";
       renderProductImagesAdmin();
-      setUploadMessage("Fotos adicionais enviadas.");
+      setUploadProgress(100);
+      setUploadMessage(
+        files.length > selectedFiles.length
+          ? `Fotos enviadas. O limite e de ${MAX_EXTRA_IMAGES} fotos adicionais por produto.`
+          : "Fotos adicionais enviadas."
+      );
     } catch (error) {
       console.error("Erro completo ao enviar fotos adicionais:", error);
-      setUploadMessage("Erro ao enviar fotos adicionais.", true);
+      setUploadMessage(error.message || "Erro ao enviar fotos adicionais.", true);
       productExtraImages = productExtraImages.filter((item) => !item.image.startsWith("blob:"));
       renderProductImagesAdmin();
     } finally {
       uploading = false;
       submitButton.disabled = saving;
+      window.setTimeout(() => setUploadProgress(0, false), 900);
     }
   });
 

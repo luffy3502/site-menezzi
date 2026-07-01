@@ -222,9 +222,29 @@ async function supabasePublicRest(path, options = {}) {
 function productFromDb(product) {
   const offerType = product.offer_type || (product.is_offer ? "oferta_semana" : "sem_oferta");
   const primaryImage = product.image_url || "assets/logo-menezzi.jpg";
+  const additionalImages = Array.isArray(product.additional_images) ? product.additional_images.filter(Boolean) : [];
   const images = Array.isArray(product.images)
     ? product.images
-    : [
+    : additionalImages.length
+      ? [
+          {
+            id: `${product.id || "product"}-primary`,
+            image: primaryImage,
+            imageUrl: primaryImage,
+            sortOrder: 1,
+            primary: true,
+          },
+          ...additionalImages
+            .filter((image) => image !== primaryImage)
+            .map((image, index) => ({
+              id: `${product.id || "product"}-additional-${index}`,
+              image,
+              imageUrl: image,
+              sortOrder: index + 2,
+              primary: false,
+            })),
+        ]
+      : [
         {
           id: `${product.id || "product"}-primary`,
           image: primaryImage,
@@ -251,6 +271,7 @@ function productFromDb(product) {
     image: primaryImage,
     imageUrl: primaryImage,
     images,
+    additionalImages,
     variants,
     offerType,
     weeklyOffer: offerType !== "sem_oferta",
