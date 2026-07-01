@@ -1,4 +1,4 @@
-const CACHE_NAME = "menezzi-site-v10";
+const CACHE_NAME = "menezzi-site-v11";
 
 const FILES_TO_CACHE = [
   "./",

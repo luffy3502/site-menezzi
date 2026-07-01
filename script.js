@@ -46,6 +46,7 @@ let storefrontContent = { gallery: [], categories: [], testimonials: [], instagr
 let activeGallery = [];
 let activeGalleryIndex = 0;
 let testimonialTimer;
+let storefrontRefreshTimer;
 const categoryFilter = CategoryFilter(categoryFilterEl, (category) => {
   state.category = category;
   renderCatalog();
@@ -57,6 +58,10 @@ function renderSkeletons() {
   const skeleton = Array.from({ length: 6 }, () => '<article class="product-skeleton"></article>').join("");
   productGridEl.innerHTML = skeleton;
   offersGridEl.innerHTML = Array.from({ length: 3 }, () => '<article class="product-skeleton"></article>').join("");
+  if (testimonialCarousel && testimonialsSection) {
+    testimonialsSection.hidden = false;
+    testimonialCarousel.innerHTML = Array.from({ length: 3 }, () => '<article class="testimonial-skeleton"></article>').join("");
+  }
 }
 
 async function loadStorefrontContent() {
@@ -66,7 +71,11 @@ async function loadStorefrontContent() {
 }
 
 function applyStorefrontContent(content) {
-  if (!content) return;
+  if (!content) {
+    renderTestimonials();
+    renderInstagram();
+    return;
+  }
   storefrontContent = {
     gallery: content.gallery || [],
     categories: content.categories || [],
@@ -120,23 +129,64 @@ function applyStorefrontContent(content) {
   renderInstagram();
 }
 
-function renderTestimonials() {
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function testimonialStars(rating) {
+  const value = Math.max(1, Math.min(5, Number(rating || 5)));
+  return `${"★".repeat(value)}${"☆".repeat(5 - value)}`;
+}
+
+function testimonialRatingLabel(rating) {
+  return ["uma estrela", "duas estrelas", "tres estrelas", "quatro estrelas", "cinco estrelas"][
+    Math.max(1, Math.min(5, Number(rating || 5))) - 1
+  ];
+}
+
+function testimonialInitials(name) {
+  return String(name || "Cliente")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function renderTestimonialsLegacy() {
   const testimonials = (storefrontContent.testimonials || []).filter((item) => item.active !== false);
   if (!testimonialCarousel || !testimonialsSection) return;
+  window.clearInterval(testimonialTimer);
   if (!testimonials.length) {
-    testimonialsSection.hidden = true;
+    testimonialsSection.hidden = false;
+    testimonialCarousel.innerHTML = `
+      <div class="testimonial-empty">
+        <span class="section-kicker">Depoimentos</span>
+        <p>Ainda nao ha avaliacoes cadastradas.</p>
+      </div>
+    `;
     return;
   }
   testimonialsSection.hidden = false;
   testimonialCarousel.innerHTML = testimonials
     .map(
       (item, index) => `
-        <article class="testimonial-card ${index === 0 ? "is-active" : ""}" data-testimonial-slide="${index}">
+        <article class="testimonial-card reveal ${index === 0 ? "is-active" : ""}" data-testimonial-slide="${index}">
           <div class="testimonial-person">
-            <img src="${item.image || "assets/logo-menezzi.jpg"}" alt="${item.name}" loading="lazy" />
+            ${
+              item.image
+                ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name || "Cliente MENEZZI")}" loading="lazy" />`
+                : `<span class="testimonial-avatar" aria-hidden="true">${escapeHtml(testimonialInitials(item.name))}</span>`
+            }
             <div>
-              <strong>${item.name}</strong>
-              <span>${item.city || "Cliente MENEZZI"}</span>
+              <strong>${escapeHtml(item.name || "Cliente MENEZZI")}</strong>
+              <span>${escapeHtml(item.city || "Cliente MENEZZI")}</span>
             </div>
           </div>
           <div class="stars" aria-label="${item.rating || 5} estrelas">${"★".repeat(Number(item.rating || 5))}</div>
@@ -156,6 +206,47 @@ function renderTestimonials() {
       slides[index]?.classList.add("is-active");
     }, 5200);
   }
+}
+
+function renderTestimonials() {
+  const testimonials = (storefrontContent.testimonials || []).filter((item) => item.active !== false);
+  if (!testimonialCarousel || !testimonialsSection) return;
+  window.clearInterval(testimonialTimer);
+
+  if (!testimonials.length) {
+    testimonialsSection.hidden = false;
+    testimonialCarousel.innerHTML = `
+      <div class="testimonial-empty">
+        <span class="section-kicker">Depoimentos</span>
+        <p>Ainda nao ha avaliacoes cadastradas.</p>
+      </div>
+    `;
+    return;
+  }
+
+  testimonialsSection.hidden = false;
+  testimonialCarousel.innerHTML = testimonials
+    .map(
+      (item, index) => `
+        <article class="testimonial-card reveal ${index === 0 ? "is-active" : ""}" data-testimonial-slide="${index}">
+          <div class="testimonial-person">
+            ${
+              item.image
+                ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name || "Cliente MENEZZI")}" loading="lazy" />`
+                : `<span class="testimonial-avatar" aria-hidden="true">${escapeHtml(testimonialInitials(item.name))}</span>`
+            }
+            <div>
+              <strong>${escapeHtml(item.name || "Cliente MENEZZI")}</strong>
+              <span>${escapeHtml(item.city || "Cliente MENEZZI")}</span>
+            </div>
+          </div>
+          <div class="stars" aria-label="${testimonialRatingLabel(item.rating)}">${testimonialStars(item.rating)}</div>
+          <p>${escapeHtml(item.comment)}</p>
+        </article>
+      `
+    )
+    .join("");
+  observeRevealItems();
 }
 
 function renderInstagram() {
@@ -304,7 +395,20 @@ async function boot() {
   renderCatalog();
   observeRevealItems();
   observeActiveNav();
+  startStorefrontAutoRefresh();
 }
+
+function startStorefrontAutoRefresh() {
+  window.clearInterval(storefrontRefreshTimer);
+  storefrontRefreshTimer = window.setInterval(async () => {
+    if (document.hidden) return;
+    applyStorefrontContent(await loadStorefrontContent().catch(() => null));
+  }, 60000);
+}
+
+document.addEventListener("visibilitychange", async () => {
+  if (!document.hidden) applyStorefrontContent(await loadStorefrontContent().catch(() => null));
+});
 
 function openGalleryImage(indexOrSrc, alt) {
   if (!activeGallery.length && galleryEl) {

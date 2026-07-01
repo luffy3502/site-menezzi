@@ -90,7 +90,7 @@ module.exports = async function handler(req, res) {
       safeSelect("store_gallery?select=*&order=sort_order.asc,created_at.desc", []),
       safeSelect("store_settings?select=*&id=eq.main&limit=1", []),
       safeSelect("product_categories?select=*&order=sort_order.asc,name.asc", []),
-      safeSelect("store_testimonials?select=*&order=sort_order.asc,created_at.desc", []),
+      safeSelect("store_testimonials?select=*&is_active=eq.true&order=sort_order.asc,created_at.desc", []),
       safeSelect("store_instagram?select=*&order=sort_order.asc,created_at.desc", []),
     ]);
     return sendJson(res, 200, {
