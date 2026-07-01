@@ -922,6 +922,37 @@ h1 {
   transform: translateY(-3px) scale(1.03);
 }
 
+.whatsapp-float,
+.whatsapp-float:visited,
+.whatsapp-float:hover,
+.whatsapp-float:focus,
+.whatsapp-float:focus-visible,
+.whatsapp-float:active {
+  background: #25d366;
+  color: #ffffff;
+  opacity: 1;
+  visibility: visible;
+  mix-blend-mode: normal;
+}
+
+.whatsapp-float:hover,
+.whatsapp-float:focus-visible {
+  box-shadow: 0 18px 48px rgba(37, 211, 102, 0.42);
+}
+
+.whatsapp-float:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
+.whatsapp-float.is-disabled,
+.whatsapp-float:disabled,
+.whatsapp-float[aria-disabled="true"] {
+  background: #25d366;
+  color: #ffffff;
+  opacity: 0.58;
+  pointer-events: none;
+}
+
 .reveal {
   opacity: 0;
   transform: translateY(22px);
@@ -3079,6 +3110,9 @@ noscript {
   min-width: 58px;
   padding: 0 18px;
   border-radius: 999px;
+  color: #ffffff;
+  isolation: isolate;
+  mix-blend-mode: normal;
 }
 
 .whatsapp-float::before {
@@ -3091,7 +3125,12 @@ noscript {
 }
 
 .whatsapp-float strong {
+  position: relative;
+  z-index: 1;
+  color: #ffffff;
   font-size: 0.8rem;
+  opacity: 1;
+  visibility: visible;
 }
 
 .category-admin-item {
@@ -3277,12 +3316,41 @@ noscript {
   padding: 8px 16px;
   border-color: rgba(198, 161, 51, 0.24);
   background: var(--ink);
+  color: #ffffff;
   box-shadow: 0 12px 28px rgba(16, 16, 16, 0.13);
 }
 
-.nav-cta:hover {
-  background: var(--gold);
-  color: var(--ink);
+.site-nav .nav-cta,
+.site-nav .nav-cta:visited,
+.site-nav .nav-cta:hover,
+.site-nav .nav-cta:focus,
+.site-nav .nav-cta:focus-visible,
+.site-nav .nav-cta:active {
+  background: var(--ink);
+  color: #ffffff;
+  opacity: 1;
+  visibility: visible;
+  mix-blend-mode: normal;
+}
+
+.site-nav .nav-cta:hover,
+.site-nav .nav-cta:focus-visible {
+  border-color: rgba(198, 161, 51, 0.44);
+  box-shadow: 0 14px 34px rgba(16, 16, 16, 0.17);
+  transform: translateY(-2px);
+}
+
+.site-nav .nav-cta:active {
+  transform: translateY(0);
+}
+
+.site-nav .nav-cta.is-disabled,
+.site-nav .nav-cta:disabled,
+.site-nav .nav-cta[aria-disabled="true"] {
+  background: var(--ink);
+  color: #ffffff;
+  opacity: 0.58;
+  pointer-events: none;
 }
 
 .menu-toggle {
