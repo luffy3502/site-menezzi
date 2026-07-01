@@ -16,7 +16,7 @@ async function showAdmin() {
   try {
     const [products, content] = await Promise.all([
       loadProducts({ admin: true }),
-      loadAdminContent().catch(() => ({ categories: [], gallery: [], settings: {} })),
+      loadAdminContent(),
     ]);
     AdminProducts(adminRoot, products, content);
   } catch (error) {

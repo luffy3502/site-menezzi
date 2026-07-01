@@ -322,9 +322,27 @@ create table if not exists public.store_testimonials (
   rating integer not null default 5,
   comment text not null default '',
   is_active boolean not null default true,
+  active boolean not null default true,
+  published boolean not null default true,
+  visible boolean not null default true,
+  deleted boolean not null default false,
+  store_id text,
   sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
+
+alter table public.store_testimonials
+  add column if not exists city text not null default '',
+  add column if not exists image_url text not null default '',
+  add column if not exists rating integer not null default 5,
+  add column if not exists comment text not null default '',
+  add column if not exists is_active boolean not null default true,
+  add column if not exists active boolean not null default true,
+  add column if not exists published boolean not null default true,
+  add column if not exists visible boolean not null default true,
+  add column if not exists deleted boolean not null default false,
+  add column if not exists store_id text,
+  add column if not exists sort_order integer not null default 0;
 
 create table if not exists public.store_instagram (
   id uuid primary key default gen_random_uuid(),
@@ -394,7 +412,13 @@ create policy "Public can read store testimonials"
 on public.store_testimonials
 for select
 to anon, authenticated
-using (is_active = true);
+using (
+  is_active = true
+  and active = true
+  and published = true
+  and visible = true
+  and deleted = false
+);
 
 drop policy if exists "Admins can manage store testimonials" on public.store_testimonials;
 create policy "Admins can manage store testimonials"

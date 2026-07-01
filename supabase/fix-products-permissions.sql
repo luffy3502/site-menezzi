@@ -294,6 +294,14 @@ grant all privileges on public.product_categories to service_role;
 grant all privileges on public.store_gallery to service_role;
 grant all privileges on public.store_settings to service_role;
 grant all privileges on public.store_testimonials to service_role;
+
+alter table public.store_testimonials
+  add column if not exists is_active boolean not null default true,
+  add column if not exists active boolean not null default true,
+  add column if not exists published boolean not null default true,
+  add column if not exists visible boolean not null default true,
+  add column if not exists deleted boolean not null default false,
+  add column if not exists store_id text;
 grant all privileges on public.store_instagram to service_role;
 
 drop policy if exists "Public can read product categories" on public.product_categories;
@@ -322,7 +330,13 @@ create policy "Public can read store testimonials"
 on public.store_testimonials
 for select
 to anon, authenticated
-using (is_active = true);
+using (
+  is_active = true
+  and active = true
+  and published = true
+  and visible = true
+  and deleted = false
+);
 
 drop policy if exists "Admins can manage store testimonials" on public.store_testimonials;
 create policy "Admins can manage store testimonials"

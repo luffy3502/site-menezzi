@@ -24,6 +24,14 @@ function normalizeGallery(row) {
   };
 }
 
+function normalizeVisibility(row) {
+  const isDeleted = row.deleted === true;
+  const isActive = row.is_active ?? row.active ?? true;
+  const isPublished = row.published ?? true;
+  const isVisible = row.visible ?? true;
+  return Boolean(isActive && isPublished && isVisible && !isDeleted);
+}
+
 function normalizeTestimonial(row) {
   return {
     id: row.id,
@@ -32,7 +40,7 @@ function normalizeTestimonial(row) {
     image: row.image_url || "",
     rating: Number(row.rating || 5),
     comment: row.comment || "",
-    active: row.is_active ?? true,
+    active: normalizeVisibility(row),
     sortOrder: Number(row.sort_order || 0),
   };
 }
@@ -165,23 +173,45 @@ async function saveGallery(body) {
 }
 
 async function saveTestimonial(body) {
-  const payload = {
+  const active = body.active ?? body.isActive ?? true;
+  const basePayload = {
     name: String(body.name || "").trim(),
     city: String(body.city || "").trim(),
     image_url: String(body.image || body.imageUrl || "").trim(),
     rating: Math.max(1, Math.min(5, Number(body.rating || 5))),
     comment: String(body.comment || "").trim(),
-    is_active: body.active ?? body.isActive ?? true,
+    is_active: active,
     sort_order: Number(body.sortOrder || 0),
   };
-  if (!payload.name || !payload.comment) throw new Error("Nome e comentario sao obrigatorios.");
+  const extendedPayload = {
+    ...basePayload,
+    active,
+    published: true,
+    visible: true,
+    deleted: false,
+  };
+  if (!basePayload.name || !basePayload.comment) throw new Error("Nome e comentario sao obrigatorios.");
   const path = body.id ? `store_testimonials?id=eq.${encodeURIComponent(body.id)}` : "store_testimonials";
-  const rows = await supabaseRest(path, {
-    method: body.id ? "PATCH" : "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify(payload),
-  });
-  return normalizeTestimonial(rows[0]);
+  let rows;
+  try {
+    rows = await supabaseRest(path, {
+      method: body.id ? "PATCH" : "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(extendedPayload),
+    });
+  } catch (error) {
+    if (!/column|schema cache|active|published|visible|deleted/i.test(error.message || "")) throw error;
+    rows = await supabaseRest(path, {
+      method: body.id ? "PATCH" : "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(basePayload),
+    });
+  }
+  const saved = rows[0];
+  if (!saved?.id) throw new Error("O Supabase nao retornou o depoimento salvo.");
+  const persistedRows = await supabaseRest(`store_testimonials?select=*&id=eq.${encodeURIComponent(saved.id)}&limit=1`);
+  if (!persistedRows.length) throw new Error("Depoimento nao permaneceu gravado no Supabase.");
+  return normalizeTestimonial(persistedRows[0]);
 }
 
 async function deleteTestimonial(id) {
@@ -292,6 +322,10 @@ module.exports = async function handler(req, res) {
     return sendJson(res, 405, { error: "Metodo nao permitido." });
   } catch (error) {
     console.error("[Admin content API error]", error);
-    return sendJson(res, 500, { error: error.message || "Erro ao salvar conteudo." });
+    return sendJson(res, 500, {
+      error: error.message || "Erro ao salvar conteudo.",
+      supabase: error.supabase || null,
+      request: error.request || null,
+    });
   }
 };

@@ -22,6 +22,14 @@ function normalizeCategory(row) {
   };
 }
 
+function normalizeVisibility(row) {
+  const isDeleted = row.deleted === true;
+  const isActive = row.is_active ?? row.active ?? true;
+  const isPublished = row.published ?? true;
+  const isVisible = row.visible ?? true;
+  return Boolean(isActive && isPublished && isVisible && !isDeleted);
+}
+
 function normalizeTestimonial(row) {
   return {
     id: row.id,
@@ -30,7 +38,7 @@ function normalizeTestimonial(row) {
     image: row.image_url || "",
     rating: Number(row.rating || 5),
     comment: row.comment || "",
-    active: row.is_active ?? true,
+    active: normalizeVisibility(row),
     sortOrder: Number(row.sort_order || 0),
   };
 }
@@ -90,18 +98,23 @@ module.exports = async function handler(req, res) {
       safeSelect("store_gallery?select=*&order=sort_order.asc,created_at.desc", []),
       safeSelect("store_settings?select=*&id=eq.main&limit=1", []),
       safeSelect("product_categories?select=*&order=sort_order.asc,name.asc", []),
-      safeSelect("store_testimonials?select=*&is_active=eq.true&order=sort_order.asc,created_at.desc", []),
+      safeSelect("store_testimonials?select=*&order=sort_order.asc,created_at.desc", []),
       safeSelect("store_instagram?select=*&order=sort_order.asc,created_at.desc", []),
     ]);
     return sendJson(res, 200, {
       gallery: galleryRows.map(normalizeGallery),
       categories: categoryRows.map(normalizeCategory),
-      testimonials: testimonialRows.map(normalizeTestimonial),
+      testimonials: testimonialRows.map(normalizeTestimonial).filter((item) => item.active),
       instagram: instagramRows.map(normalizeInstagramPhoto),
       settings: normalizeSettings(settingsRows[0]),
     });
   } catch (error) {
     console.error("[Storefront content API error]", error);
-    return sendJson(res, 500, { error: "Nao foi possivel carregar o conteudo da loja." });
+    return sendJson(res, 500, {
+      error: "Nao foi possivel carregar o conteudo da loja.",
+      details: error.message || null,
+      supabase: error.supabase || null,
+      request: error.request || null,
+    });
   }
 };

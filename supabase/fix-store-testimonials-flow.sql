@@ -1,13 +1,45 @@
-alter table public.store_testimonials enable row level security;
-alter table public.store_testimonials no force row level security;
+create table if not exists public.store_testimonials (
+  id uuid primary key default gen_random_uuid(),
+  name text not null default '',
+  city text not null default '',
+  image_url text not null default '',
+  rating integer not null default 5,
+  comment text not null default '',
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
 
 alter table public.store_testimonials
+  add column if not exists city text not null default '',
+  add column if not exists image_url text not null default '',
+  add column if not exists rating integer not null default 5,
+  add column if not exists comment text not null default '',
   add column if not exists is_active boolean not null default true,
   add column if not exists active boolean not null default true,
   add column if not exists published boolean not null default true,
   add column if not exists visible boolean not null default true,
   add column if not exists deleted boolean not null default false,
-  add column if not exists store_id text;
+  add column if not exists store_id text,
+  add column if not exists sort_order integer not null default 0,
+  add column if not exists created_at timestamptz not null default now();
+
+update public.store_testimonials
+set
+  is_active = coalesce(is_active, active, true),
+  active = coalesce(active, is_active, true),
+  published = coalesce(published, true),
+  visible = coalesce(visible, true),
+  deleted = coalesce(deleted, false)
+where
+  is_active is null
+  or active is null
+  or published is null
+  or visible is null
+  or deleted is null;
+
+alter table public.store_testimonials enable row level security;
+alter table public.store_testimonials no force row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
 grant select on public.store_testimonials to anon, authenticated;
