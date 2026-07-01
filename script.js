@@ -355,16 +355,34 @@ searchInput.addEventListener("input", (event) => {
 });
 
 if (menuToggle && nav) {
+  function closeMobileMenu() {
+    nav.classList.remove("is-open");
+    menuToggle.classList.remove("is-active");
+    menuToggle.setAttribute("aria-expanded", "false");
+  }
+
   menuToggle.addEventListener("click", () => {
     const isOpen = nav.classList.toggle("is-open");
+    menuToggle.classList.toggle("is-active", isOpen);
     menuToggle.setAttribute("aria-expanded", String(isOpen));
   });
 
   nav.addEventListener("click", (event) => {
     if (event.target.matches("a")) {
-      nav.classList.remove("is-open");
-      menuToggle.setAttribute("aria-expanded", "false");
+      closeMobileMenu();
     }
+  });
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (nav.classList.contains("is-open")) closeMobileMenu();
+    },
+    { passive: true }
+  );
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 1399) closeMobileMenu();
   });
 }
 

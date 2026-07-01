@@ -47,6 +47,16 @@ where p.image_url <> ''
     where pi.product_id = p.id
   );
 
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+as $$
+  select coalesce(auth.jwt() -> 'app_metadata' ->> 'role', '') = 'admin'
+    or coalesce(auth.jwt() -> 'user_metadata' ->> 'role', '') = 'admin'
+    or coalesce(auth.jwt() ->> 'role', '') = 'service_role';
+$$;
+
 create or replace function public.set_products_updated_at()
 returns trigger as $$
 begin
@@ -64,18 +74,69 @@ execute function public.set_products_updated_at();
 
 alter table public.products enable row level security;
 alter table public.product_images enable row level security;
+alter table public.products no force row level security;
+alter table public.product_images no force row level security;
+
+grant usage on schema public to anon, authenticated, service_role;
+grant select on public.products to anon, authenticated;
+grant insert, update, delete on public.products to authenticated;
+grant all privileges on public.products to service_role;
+grant select on public.product_images to anon, authenticated;
+grant insert, update, delete on public.product_images to authenticated;
+grant all privileges on public.product_images to service_role;
 
 drop policy if exists "Public can read available products" on public.products;
 create policy "Public can read available products"
 on public.products
 for select
+to anon, authenticated
 using (is_available = true);
+
+drop policy if exists "Admins can manage products" on public.products;
+create policy "Admins can manage products"
+on public.products
+for all
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Service role can manage products" on public.products;
+create policy "Service role can manage products"
+on public.products
+for all
+to service_role
+using (true)
+with check (true);
 
 drop policy if exists "Public can read product images" on public.product_images;
 create policy "Public can read product images"
 on public.product_images
 for select
-using (true);
+to anon, authenticated
+using (
+  exists (
+    select 1
+    from public.products p
+    where p.id = product_images.product_id
+      and p.is_available = true
+  )
+);
+
+drop policy if exists "Admins can manage product images" on public.product_images;
+create policy "Admins can manage product images"
+on public.product_images
+for all
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Service role can manage product images" on public.product_images;
+create policy "Service role can manage product images"
+on public.product_images
+for all
+to service_role
+using (true)
+with check (true);
 
 -- Admin writes are performed by Vercel serverless functions using SUPABASE_SERVICE_ROLE_KEY.
 
@@ -83,11 +144,39 @@ insert into storage.buckets (id, name, public)
 values ('products', 'products', true)
 on conflict (id) do update set public = excluded.public;
 
+grant usage on schema storage to anon, authenticated, service_role;
+grant select on storage.objects to anon, authenticated;
+grant insert, update, delete on storage.objects to authenticated;
+grant all privileges on storage.objects to service_role;
+
 drop policy if exists "Public can read products bucket" on storage.objects;
 create policy "Public can read products bucket"
 on storage.objects
 for select
+to anon, authenticated
 using (bucket_id = 'products');
+
+drop policy if exists "Admins can upload products bucket" on storage.objects;
+create policy "Admins can upload products bucket"
+on storage.objects
+for insert
+to authenticated
+with check (bucket_id = 'products' and public.is_admin());
+
+drop policy if exists "Admins can update products bucket" on storage.objects;
+create policy "Admins can update products bucket"
+on storage.objects
+for update
+to authenticated
+using (bucket_id = 'products' and public.is_admin())
+with check (bucket_id = 'products' and public.is_admin());
+
+drop policy if exists "Admins can delete products bucket" on storage.objects;
+create policy "Admins can delete products bucket"
+on storage.objects
+for delete
+to authenticated
+using (bucket_id = 'products' and public.is_admin());
 
 create table if not exists public.product_categories (
   id uuid primary key default gen_random_uuid(),
